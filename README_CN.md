@@ -1,11 +1,14 @@
 # Memory Pulse MCP Server
 
+[![GitHub Stars](https://img.shields.io/github/stars/jiahuidegit/memory-mcp-server?style=social)](https://github.com/jiahuidegit/memory-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![npm version](https://img.shields.io/npm/v/memory-pulse-mcp-server.svg)](https://www.npmjs.com/package/memory-pulse-mcp-server)
 [![npm downloads](https://img.shields.io/npm/dm/memory-pulse-mcp-server.svg)](https://www.npmjs.com/package/memory-pulse-mcp-server)
 
 **🧠 精准、结构化的 AI 上下文记忆系统。专为 Claude Code 设计的 MCP Server。**
+
+> ⭐ **如果这个项目对你有帮助，请在 [GitHub](https://github.com/jiahuidegit/memory-mcp-server) 上给个 Star！** 你的支持是我们前进的动力！
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -405,6 +408,18 @@ Memory Pulse 采用 **三级级联检索策略**：
 
 ---
 
+## 📈 Star History
+
+<a href="https://star-history.com/#jiahuidegit/memory-mcp-server&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date" />
+ </picture>
+</a>
+
+---
+
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
@@ -428,4 +443,4 @@ pnpm test
 
 **⭐ 如果这个项目对你有帮助，请给个 Star！**
 
-**🧠 让 AI 精准记住一切。**
+**🤝 欢迎提交 Issue 反馈问题，或提交 PR 贡献代码！**

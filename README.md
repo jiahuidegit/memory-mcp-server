@@ -1,11 +1,14 @@
 # Memory Pulse MCP Server
 
+[![GitHub Stars](https://img.shields.io/github/stars/jiahuidegit/memory-mcp-server?style=social)](https://github.com/jiahuidegit/memory-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![npm version](https://img.shields.io/npm/v/memory-pulse-mcp-server.svg)](https://www.npmjs.com/package/memory-pulse-mcp-server)
 [![npm downloads](https://img.shields.io/npm/dm/memory-pulse-mcp-server.svg)](https://www.npmjs.com/package/memory-pulse-mcp-server)
 
 **🧠 A precise, structured AI context memory system. MCP Server designed for Claude Code.**
+
+> ⭐ **If you find this project helpful, please give it a star on [GitHub](https://github.com/jiahuidegit/memory-mcp-server)!** Your support helps us improve!
 
 [English](README.md) | [中文](README_CN.md)
 
@@ -405,6 +408,18 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 
 ---
 
+## 📊 Star History
+
+<a href="https://star-history.com/#jiahuidegit/memory-mcp-server&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiahuidegit/memory-mcp-server&type=Date" />
+ </picture>
+</a>
+
+---
+
 ## 🤝 Contributing
 
 Issues and Pull Requests are welcome!
@@ -428,4 +443,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 **⭐ If you find this project helpful, please give it a star!**
 
-**🧠 Let AI remember everything, precisely.**
+**🤝 Feel free to open issues for questions or submit PRs for improvements!**
