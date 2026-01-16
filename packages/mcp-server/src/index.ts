@@ -10,8 +10,9 @@ import {
   GetPromptRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { SQLiteStorage } from '@emp/storage';
+import { SQLiteStorage, PostgreSQLStorage } from '@emp/storage';
 import type {
+  IStorage,
   DecisionContext,
   SolutionContext,
   SessionContext,
@@ -47,9 +48,28 @@ const server = new Server(
   }
 );
 
-// 初始化存储（从环境变量或默认路径）
-const dbPath = process.env.EMP_DB_PATH || './memory.db';
-const storage = new SQLiteStorage(dbPath);
+// 存储类型：sqlite（默认） 或 postgresql
+const storageType = process.env.MEMORY_STORAGE || 'sqlite';
+
+// 初始化存储
+function createStorage(): IStorage {
+  if (storageType === 'postgresql') {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      console.error('错误: 使用 PostgreSQL 存储需要设置 DATABASE_URL 环境变量');
+      process.exit(1);
+    }
+    console.error(`Memory Pulse 使用 PostgreSQL 存储: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`);
+    return new PostgreSQLStorage(databaseUrl);
+  }
+
+  // SQLite 存储（默认）
+  const dbPath = process.env.MEMORY_DB_PATH || './memory.db';
+  console.error(`Memory Pulse 使用 SQLite 存储: ${dbPath}`);
+  return new SQLiteStorage(dbPath);
+}
+
+const storage = createStorage();
 
 // 定义工具列表
 const tools: Tool[] = [

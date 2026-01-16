@@ -154,10 +154,26 @@ npm list -g memory-pulse-mcp-server
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `MEMORY_STORAGE` | 存储类型：`sqlite` 或 `postgresql` | `sqlite` |
 | `MEMORY_DB_PATH` | SQLite 数据库文件路径 | `./memory.db` |
-| `MEMORY_PROJECT_ID` | 默认项目 ID | `default` |
+| `DATABASE_URL` | PostgreSQL 连接字符串（使用 postgresql 时必填） | - |
 
-### 自定义数据库路径
+### SQLite 存储（默认）
+
+零配置，开箱即用：
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"]
+    }
+  }
+}
+```
+
+### 自定义 SQLite 路径
 
 ```json
 {
@@ -172,6 +188,30 @@ npm list -g memory-pulse-mcp-server
   }
 }
 ```
+
+### PostgreSQL 存储
+
+适用于生产部署或团队使用：
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"],
+      "env": {
+        "MEMORY_STORAGE": "postgresql",
+        "DATABASE_URL": "postgresql://user:password@localhost:5432/memory_pulse"
+      }
+    }
+  }
+}
+```
+
+> **注意**：PostgreSQL 存储需要 `@prisma/client`，如有需要请手动安装：
+> ```bash
+> npm install @prisma/client
+> ```
 
 ---
 
@@ -355,11 +395,11 @@ Memory Pulse 采用 **三级级联检索策略**：
 
 - [x] MCP Server 核心功能
 - [x] SQLite 本地存储
+- [x] PostgreSQL 云端支持
 - [x] 多级检索（精确 + 全文）
 - [x] Decision/Solution/Session 结构化存储
 - [ ] Web Dashboard 可视化
 - [ ] CLI 工具
-- [ ] PostgreSQL 云端支持
 - [ ] 语义搜索（Embedding）
 - [ ] 团队协作功能
 

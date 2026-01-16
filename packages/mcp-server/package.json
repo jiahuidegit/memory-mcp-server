@@ -44,6 +44,9 @@
     "better-sqlite3": "^11.0.0",
     "nanoid": "^5.0.9"
   },
+  "optionalDependencies": {
+    "@prisma/client": "^6.0.0"
+  },
   "devDependencies": {
     "@emp/core": "workspace:*",
     "@emp/storage": "workspace:*",

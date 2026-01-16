@@ -154,10 +154,26 @@ Restart the client after configuration.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `MEMORY_STORAGE` | Storage type: `sqlite` or `postgresql` | `sqlite` |
 | `MEMORY_DB_PATH` | SQLite database file path | `./memory.db` |
-| `MEMORY_PROJECT_ID` | Default project ID | `default` |
+| `DATABASE_URL` | PostgreSQL connection string (required for postgresql) | - |
 
-### Custom Database Path
+### SQLite Storage (Default)
+
+Zero configuration, works out of the box:
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"]
+    }
+  }
+}
+```
+
+### Custom SQLite Path
 
 ```json
 {
@@ -172,6 +188,30 @@ Restart the client after configuration.
   }
 }
 ```
+
+### PostgreSQL Storage
+
+For production deployments or team usage:
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"],
+      "env": {
+        "MEMORY_STORAGE": "postgresql",
+        "DATABASE_URL": "postgresql://user:password@localhost:5432/memory_pulse"
+      }
+    }
+  }
+}
+```
+
+> **Note**: PostgreSQL storage requires `@prisma/client`. Install it manually if needed:
+> ```bash
+> npm install @prisma/client
+> ```
 
 ---
 
@@ -355,11 +395,11 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 
 - [x] MCP Server core functionality
 - [x] SQLite local storage
+- [x] PostgreSQL cloud support
 - [x] Multi-level retrieval (Exact + Full-text)
 - [x] Decision/Solution/Session structured storage
 - [ ] Web Dashboard for visualization
 - [ ] CLI tool for manual operations
-- [ ] PostgreSQL cloud support
 - [ ] Semantic search (Embedding)
 - [ ] Team collaboration features
 
