@@ -1,6 +1,6 @@
 {
   "name": "memory-pulse-mcp-server",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Memory Pulse - 精准、结构化的 AI 上下文记忆系统 MCP Server",
   "type": "module",
   "main": "./dist/index.js",
