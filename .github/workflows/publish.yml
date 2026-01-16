@@ -24,6 +24,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Generate Prisma Client
+        working-directory: packages/storage
+        run: pnpm prisma:generate
+
       - name: Build all packages
         run: pnpm build
 
