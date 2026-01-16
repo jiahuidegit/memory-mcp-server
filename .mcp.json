@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "node",
+      "args": [
+        "/Users/yangjiahui/work/elb-workbase/context-memory-system/packages/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "EMP_DB_PATH": "/Users/yangjiahui/work/elb-workbase/context-memory-system/data/memory.db"
+      }
+    }
+  }
+}

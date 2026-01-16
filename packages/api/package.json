@@ -1,0 +1,26 @@
+{
+  "name": "@emp/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@emp/core": "workspace:*",
+    "@emp/storage": "workspace:*",
+    "@hono/node-server": "^1.0.0",
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0"
+  }
+}

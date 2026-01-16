@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # API 服务
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    container_name: cms-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # SQLite 数据库配置（默认）
+      - DATABASE_URL=sqlite:/app/data/memories.db
+      # 或使用远程 PostgreSQL
+      # - DATABASE_URL=postgresql://postgres:123456@10.10.1.12:5432/context_memory_system
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    networks:
+      - cms-network
+
+  # Web Dashboard
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    container_name: cms-web
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXT_PUBLIC_API_URL=http://10.10.1.4:3000
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - cms-network
+
+  # CLI 工具（按需运行）
+  cli:
+    build:
+      context: .
+      dockerfile: packages/cli/Dockerfile
+    container_name: cms-cli
+    volumes:
+      - ./data:/data
+    networks:
+      - cms-network
+    profiles:
+      - tools
+
+networks:
+  cms-network:
+    driver: bridge
+
+volumes:
+  data:

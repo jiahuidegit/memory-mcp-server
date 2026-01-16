@@ -1,0 +1,182 @@
+import { Hono } from 'hono';
+import { MemoryType, SearchStrategy } from '@emp/core';
+import { getStorage } from '../utils/storage.js';
+
+const app = new Hono();
+
+/**
+ * GET /api/memories
+ * 获取记忆列表（可选过滤）
+ */
+app.get('/', async (c) => {
+  const projectId = c.req.query('projectId');
+  const type = c.req.query('type');
+  const limit = parseInt(c.req.query('limit') || '50', 10);
+  const query = c.req.query('query');
+
+  const storage = getStorage();
+
+  // 空 query 时不传该参数，返回所有记忆
+  const results = await storage.recall({
+    query: query || undefined,
+    projectId,
+    type: type as MemoryType | undefined,
+    strategy: SearchStrategy.EXACT,
+    limit,
+  });
+
+  return c.json({
+    memories: results.memories,
+    total: results.total,
+    count: results.memories.length,
+  });
+});
+
+/**
+ * POST /api/memories
+ * 存储记忆
+ */
+app.post('/', async (c) => {
+  const body = await c.req.json();
+
+  const { content, rawContext, projectId, type, tags, sessionId } = body;
+
+  if (!content || !projectId) {
+    return c.json({ error: '缺少必需参数: content, projectId' }, 400);
+  }
+
+  const storage = getStorage();
+
+  const result = await storage.store({
+    content,
+    rawContext: rawContext || {},
+    projectId,
+    type: (type as MemoryType) || MemoryType.CODE,
+    tags: tags || [],
+    sessionId,
+  });
+
+  return c.json({
+    success: true,
+    data: result,
+  });
+});
+
+/**
+ * GET /api/memories/search?query=xxx&project=xxx&type=xxx&tags=xxx&strategy=xxx&limit=10
+ * 检索记忆
+ */
+app.get('/search', async (c) => {
+  const query = c.req.query('query');
+  const projectId = c.req.query('project');
+  const type = c.req.query('type');
+  const tagsStr = c.req.query('tags');
+  const strategyStr = c.req.query('strategy') || 'exact';
+  const limit = parseInt(c.req.query('limit') || '10', 10);
+
+  if (!query) {
+    return c.json({ error: '缺少必需参数: query' }, 400);
+  }
+
+  const storage = getStorage();
+
+  const tags = tagsStr ? tagsStr.split(',').map((t) => t.trim()) : undefined;
+
+  // 字符串转SearchStrategy enum
+  const strategyMap: Record<string, SearchStrategy> = {
+    exact: SearchStrategy.EXACT,
+    fulltext: SearchStrategy.FULLTEXT,
+    semantic: SearchStrategy.SEMANTIC,
+    auto: SearchStrategy.AUTO,
+  };
+  const strategy = strategyMap[strategyStr] || SearchStrategy.EXACT;
+
+  const results = await storage.recall({
+    query,
+    projectId,
+    type: type as MemoryType | undefined,
+    tags,
+    strategy,
+    limit,
+  });
+
+  return c.json({
+    success: true,
+    data: results.memories,
+    cacheHit: results.metrics?.cacheHit || false,
+    count: results.memories.length,
+    total: results.total,
+    took: results.took,
+  });
+});
+
+/**
+ * GET /api/memories/:id
+ * 获取单个记忆
+ */
+app.get('/:id', async (c) => {
+  const id = c.req.param('id');
+  const storage = getStorage();
+
+  try {
+    const memory = await storage.getById(id);
+
+    if (!memory) {
+      return c.json({ error: '未找到该记忆' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: memory,
+    });
+  } catch (error) {
+    throw error;
+  }
+});
+
+/**
+ * PUT /api/memories/:id
+ * 更新记忆
+ */
+app.put('/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  const storage = getStorage();
+
+  try {
+    const result = await storage.update(id, body);
+    if (!result.success) {
+      return c.json({ error: '更新失败' }, 500);
+    }
+    return c.json({ success: true });
+  } catch (error: any) {
+    if (error.message?.includes('not found')) {
+      return c.json({ error: '未找到该记忆' }, 404);
+    }
+    throw error;
+  }
+});
+
+/**
+ * DELETE /api/memories/:id
+ * 删除记忆
+ */
+app.delete('/:id', async (c) => {
+  const id = c.req.param('id');
+  const storage = getStorage();
+
+  try {
+    const result = await storage.delete(id);
+    if (!result.success) {
+      return c.json({ error: '删除失败' }, 500);
+    }
+    return c.json({ success: true });
+  } catch (error: any) {
+    if (error.message?.includes('not found')) {
+      return c.json({ error: '未找到该记忆' }, 404);
+    }
+    throw error;
+  }
+});
+
+export const memoryRoutes = app;
