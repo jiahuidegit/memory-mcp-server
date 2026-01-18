@@ -1,6 +1,6 @@
 {
   "name": "memory-pulse-mcp-server",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Memory Pulse - 精准、结构化的 AI 上下文记忆系统 MCP Server",
   "type": "module",
   "main": "./dist/index.js",
@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "prisma",
     "README.md"
   ],
   "scripts": {
@@ -19,7 +20,8 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "postinstall": "prisma generate --schema=./prisma/schema.prisma || true"
   },
   "keywords": [
     "mcp",
@@ -42,7 +44,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "better-sqlite3": "^11.0.0",
-    "nanoid": "^5.0.9"
+    "nanoid": "^5.0.9",
+    "prisma": "^6.0.0"
   },
   "optionalDependencies": {
     "@prisma/client": "^6.0.0"

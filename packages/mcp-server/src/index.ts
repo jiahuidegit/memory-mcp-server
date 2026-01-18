@@ -20,6 +20,9 @@ import type {
   RelationsOptions,
 } from '@emp/core';
 import { SearchStrategy } from '@emp/core';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 /**
  * Memory Pulse (记忆脉搏) MCP Server
@@ -51,6 +54,10 @@ const server = new Server(
 // 存储类型：sqlite（默认） 或 postgresql
 const storageType = process.env.MEMORY_STORAGE || 'sqlite';
 
+// 获取当前文件目录（用于定位 prisma schema）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // 初始化存储
 function createStorage(): IStorage {
   if (storageType === 'postgresql') {
@@ -60,6 +67,20 @@ function createStorage(): IStorage {
       process.exit(1);
     }
     console.error(`Memory Pulse 使用 PostgreSQL 存储: ${databaseUrl.replace(/:[^:@]+@/, ':****@')}`);
+
+    // 自动推送数据库表结构
+    try {
+      const schemaPath = join(__dirname, '..', 'prisma', 'schema.prisma');
+      console.error('📦 正在同步数据库表结构...');
+      execSync(`npx prisma db push --schema="${schemaPath}" --skip-generate`, {
+        env: { ...process.env, DATABASE_URL: databaseUrl },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      console.error('✅ 数据库表结构同步完成');
+    } catch (error) {
+      console.error('⚠️ 数据库表结构同步失败（可能表已存在）:', (error as Error).message);
+    }
+
     return new PostgreSQLStorage(databaseUrl);
   }
 

@@ -1,0 +1,54 @@
+// Prisma Schema for Context Memory System (PostgreSQL)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 记忆表
+model Memory {
+  /// 主键：记忆唯一标识
+  id String @id @default(cuid())
+
+  /// 元信息
+  projectId String
+  sessionId String?
+  timestamp DateTime @default(now())
+  type      String   // decision, solution, config, code, error, session
+  tags      String[] @default([])
+  version   Int      @default(1)
+
+  /// 内容
+  summary String
+  data    Json @default("{}")
+
+  /// 关系
+  replaces    String[] @default([])
+  relatedTo   String[] @default([])
+  impacts     String[] @default([])
+  derivedFrom String?
+
+  /// 上下文（特定类型的额外数据）
+  context Json?
+
+  /// 检索字段
+  keywords String[] @default([])
+  fullText String
+
+  /// 时间戳
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 索引
+  @@index([projectId])
+  @@index([sessionId])
+  @@index([type])
+  @@index([timestamp(sort: Desc)])
+  @@index([projectId, type])
+  @@index([projectId, timestamp(sort: Desc)])
+  @@index([projectId, type, timestamp(sort: Desc)])
+  @@map("memories")
+}
