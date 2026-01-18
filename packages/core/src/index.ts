@@ -2,6 +2,56 @@
 export { MemoryType, SearchStrategy } from './types.js';
 export type { RelationType } from './types.js';
 
+// Feature Flag 系统
+export {
+  OpenSourceFeature,
+  CloudFeature,
+  LicenseType,
+  FeatureManager,
+  FeatureNotAvailableError,
+  getFeatureManager,
+  initFeatureManager,
+  isFeatureEnabled,
+  requireFeature,
+} from './features.js';
+export type {
+  FeatureKey,
+  FeatureConfig,
+  LicenseInfo,
+} from './features.js';
+
+// License 验证
+export {
+  parseLicenseKey,
+  parseLicenseFile,
+  loadLicense,
+  generateTestLicenseKey,
+} from './license.js';
+export type {
+  LicenseFile,
+  LicenseKeyPayload,
+  LicenseLoaderOptions,
+} from './license.js';
+
+// Embedding 服务
+export {
+  cosineSimilarity,
+  euclideanDistance,
+  distanceToSimilarity,
+  normalizeVector,
+  serializeVector,
+  deserializeVector,
+  OPENAI_DEFAULTS,
+  LOCAL_DEFAULTS,
+} from './embedding.js';
+export type {
+  Vector,
+  EmbeddingResult,
+  BatchEmbeddingResult,
+  EmbeddingProviderConfig,
+  IEmbeddingService,
+} from './embedding.js';
+
 // 记忆类型
 export type {
   Memory,

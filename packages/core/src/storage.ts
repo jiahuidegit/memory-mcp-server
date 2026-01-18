@@ -8,6 +8,7 @@ import {
   SolutionContext,
   SessionContext,
 } from './memory.js';
+import type { Vector } from './embedding.js';
 
 /**
  * 检索过滤条件
@@ -15,6 +16,8 @@ import {
 export interface SearchFilters {
   /** 查询关键词（可选，为空时返回所有记忆） */
   query?: string;
+  /** 查询向量（用于语义搜索） */
+  queryVector?: Vector;
   /** 项目ID（可选） */
   projectId?: string;
   /** 记忆类型（可选） */
@@ -25,6 +28,8 @@ export interface SearchFilters {
   sessionId?: string;
   /** 检索策略 */
   strategy?: SearchStrategy;
+  /** 语义搜索相似度阈值（0-1，默认 0.7） */
+  similarityThreshold?: number;
   /** 分页：每页数量 */
   limit?: number;
   /** 分页：偏移量 */
@@ -135,6 +140,7 @@ export interface IStorage {
     type?: MemoryType;
     tags?: string[];
     sessionId?: string;
+    embedding?: Vector; // 可选的向量 embedding
     relations?: {
       replaces?: string[];
       relatedTo?: string[];
@@ -151,6 +157,7 @@ export interface IStorage {
       projectId: string;
       tags?: string[];
       sessionId?: string;
+      embedding?: Vector; // 可选的向量 embedding
       relations?: {
         replaces?: string[];
         relatedTo?: string[];
@@ -168,6 +175,7 @@ export interface IStorage {
       projectId: string;
       tags?: string[];
       sessionId?: string;
+      embedding?: Vector; // 可选的向量 embedding
       artifacts?: Record<string, string>;
       relations?: {
         replaces?: string[];
@@ -185,6 +193,7 @@ export interface IStorage {
     params: SessionContext & {
       projectId: string;
       sessionId?: string;
+      embedding?: Vector; // 可选的向量 embedding
     }
   ): Promise<{ id: string; success: boolean }>;
 
@@ -217,4 +226,14 @@ export interface IStorage {
    * 更新记忆
    */
   update(memoryId: string, updates: Partial<Memory>): Promise<{ success: boolean }>;
+
+  /**
+   * 获取统计信息（可选实现）
+   */
+  getStats?(projectId?: string): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    byProject: Record<string, number>;
+    recentCount: number; // 最近 7 天
+  }>;
 }

@@ -20,6 +20,7 @@ import type {
   TimelineOptions,
   RelationsOptions,
 } from '@emp/core';
+import { SearchStrategy } from '@emp/core';
 
 /**
  * Memory Pulse (记忆脉搏) MCP Server
@@ -29,7 +30,7 @@ import type {
  * - mpulse_store_decision: 存储决策
  * - mpulse_store_solution: 存储解决方案
  * - mpulse_store_session: 存储会话
- * - mpulse_recall: 检索记忆
+ * - mpulse_recall: 检索记忆（全文搜索，AI 自己理解语义）
  * - mpulse_timeline: 时间线视图
  * - mpulse_relations: 关系链查询
  */
@@ -244,7 +245,7 @@ const tools: Tool[] = [
   },
   {
     name: 'mpulse_recall',
-    description: '检索记忆（多策略：精确、全文、语义）',
+    description: '检索记忆（全文搜索，AI 自己理解结果语义）',
     inputSchema: {
       type: 'object',
       properties: {
@@ -268,8 +269,8 @@ const tools: Tool[] = [
         },
         strategy: {
           type: 'string',
-          enum: ['exact', 'fulltext', 'semantic'],
-          description: '检索策略',
+          enum: ['exact', 'fulltext', 'auto'],
+          description: '检索策略（默认 fulltext 全文搜索）',
         },
         limit: {
           type: 'number',
@@ -794,14 +795,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case 'mpulse_recall': {
+        const query = (args as any).query;
+        const strategy = (args as any).strategy || 'fulltext';
+
+        // 构建检索过滤器
         const filters: SearchFilters = {
-          query: (args as any).query,
+          query,
           projectId: (args as any).projectId,
           type: (args as any).type,
           tags: (args as any).tags,
-          strategy: (args as any).strategy,
+          strategy: strategy as any,
           limit: (args as any).limit,
         };
+
         const result = await storage.recall(filters);
         return {
           content: [

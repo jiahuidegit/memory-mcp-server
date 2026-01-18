@@ -18,6 +18,8 @@ import {
   Sparkles,
   Database,
   Activity,
+  FolderOpen,
+  CalendarDays,
 } from 'lucide-react';
 import {
   PieChart,
@@ -26,10 +28,11 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import type { Memory, SearchResult } from '@emp/core';
+import type { Memory } from '@emp/core';
 import api from '@/lib/api';
 import { formatRelativeTime, getMemoryTypeName } from '@/lib/utils';
 import { Navbar } from '@/components/Navbar';
+import { useProject } from '@/context/ProjectContext';
 
 import type { LucideProps } from 'lucide-react';
 
@@ -56,31 +59,36 @@ const typeIcons: Record<string, React.ComponentType<LucideProps>> = {
 };
 
 export default function HomePage() {
+  const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<{
     total: number;
     byType: Record<string, number>;
     recent: Memory[];
-  }>({ total: 0, byType: {}, recent: [] });
+    recentCount: number;
+    projectCount: number;
+  }>({ total: 0, byType: {}, recent: [], recentCount: 0, projectCount: 0 });
 
   useEffect(() => {
     loadStats();
-  }, []);
+  }, [currentProject]);
 
   async function loadStats() {
     try {
       setLoading(true);
-      const result: SearchResult = await api.getMemories({ query: '', limit: 100 });
 
-      const byType: Record<string, number> = {};
-      result.memories.forEach((m) => {
-        byType[m.meta.type] = (byType[m.meta.type] || 0) + 1;
-      });
+      // 并行请求统计数据和最近记忆（根据当前选中项目筛选）
+      const [statsData, recentResult] = await Promise.all([
+        api.getStats(currentProject || undefined),
+        api.getMemories({ query: '', projectId: currentProject || undefined, limit: 5 }),
+      ]);
 
       setStats({
-        total: result.memories.length,
-        byType,
-        recent: result.memories.slice(0, 5),
+        total: statsData.total,
+        byType: statsData.byType,
+        recent: recentResult.memories,
+        recentCount: statsData.recentCount,
+        projectCount: Object.keys(statsData.byProject).length,
       });
     } catch (err) {
       console.error('加载统计失败:', err);
@@ -224,7 +232,7 @@ export default function HomePage() {
               {/* Left Column - Stats & Recent Activity */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Stats Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {/* Total Count */}
                   <div className="glassCard p-6 glowBorder">
                     <div className="flex items-center gap-4">
@@ -240,33 +248,82 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Type Stats */}
-                  {Object.entries(stats.byType).slice(0, 5).map(([type, count]) => {
-                    const Icon = typeIcons[type] || Brain;
-                    const color = typeColors[type] || '#6B7280';
-                    return (
-                      <div key={type} className="glassCard p-6">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className="p-3 rounded-xl"
-                            style={{
-                              background: `linear-gradient(135deg, ${color}20, ${color}10)`,
-                              border: `1px solid ${color}30`,
-                            }}
-                          >
-                            <Icon className="w-6 h-6" style={{ color }} />
-                          </div>
-                          <div>
-                            <div className="text-2xl font-bold font-heading">{count}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {getMemoryTypeName(type)}
+                  {/* Project Count */}
+                  <div className="glassCard p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-purple-600/20 to-purple-400/10 border border-purple-500/20">
+                        <FolderOpen className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <div>
+                        <div className="text-3xl font-bold font-heading text-purple-400">
+                          {stats.projectCount}
+                        </div>
+                        <div className="text-sm text-muted-foreground">项目数</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent 7 Days */}
+                  <div className="glassCard p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-600/20 to-emerald-400/10 border border-emerald-500/20">
+                        <CalendarDays className="w-6 h-6 text-emerald-400" />
+                      </div>
+                      <div>
+                        <div className="text-3xl font-bold font-heading text-emerald-400">
+                          {stats.recentCount}
+                        </div>
+                        <div className="text-sm text-muted-foreground">近 7 天</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Types Count */}
+                  <div className="glassCard p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-orange-600/20 to-orange-400/10 border border-orange-500/20">
+                        <Database className="w-6 h-6 text-orange-400" />
+                      </div>
+                      <div>
+                        <div className="text-3xl font-bold font-heading text-orange-400">
+                          {Object.keys(stats.byType).length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">类型数</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Type Stats Row */}
+                {Object.keys(stats.byType).length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {Object.entries(stats.byType).map(([type, count]) => {
+                      const Icon = typeIcons[type] || Brain;
+                      const color = typeColors[type] || '#6B7280';
+                      return (
+                        <div key={type} className="glassCard p-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="p-2 rounded-lg"
+                              style={{
+                                background: `linear-gradient(135deg, ${color}20, ${color}10)`,
+                                border: `1px solid ${color}30`,
+                              }}
+                            >
+                              <Icon className="w-4 h-4" style={{ color }} />
+                            </div>
+                            <div>
+                              <div className="text-xl font-bold font-heading">{count}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {getMemoryTypeName(type)}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Recent Activity */}
                 <div className="glassCard p-6">

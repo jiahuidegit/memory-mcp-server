@@ -10,6 +10,8 @@ import { solutionRoutes } from './routes/solution.js';
 import { sessionRoutes } from './routes/session.js';
 import { timelineRoutes } from './routes/timeline.js';
 import { relationsRoutes } from './routes/relations.js';
+import { searchRoutes } from './routes/search.js';
+import { statsRoutes } from './routes/stats.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = new Hono();
@@ -35,6 +37,8 @@ app.route('/api/solutions', solutionRoutes);
 app.route('/api/sessions', sessionRoutes);
 app.route('/api/timeline', timelineRoutes);
 app.route('/api/relations', relationsRoutes);
+app.route('/api/search', searchRoutes);
+app.route('/api/stats', statsRoutes);
 
 // 404处理
 app.notFound((c) => {

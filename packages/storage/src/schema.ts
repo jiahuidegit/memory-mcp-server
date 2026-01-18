@@ -1,6 +1,21 @@
 import type Database from 'better-sqlite3';
 
 /**
+ * 数据库迁移：为旧表添加 embedding 字段
+ */
+function migrateEmbeddingColumn(db: Database.Database): void {
+  // 检查 embedding 列是否存在
+  const columns = db.pragma('table_info(memories)') as { name: string }[];
+  const hasEmbedding = columns.some((col) => col.name === 'embedding');
+
+  if (!hasEmbedding) {
+    console.log('📦 迁移: 添加 embedding 字段...');
+    db.exec('ALTER TABLE memories ADD COLUMN embedding TEXT');
+    console.log('✅ 迁移完成');
+  }
+}
+
+/**
  * 初始化数据库Schema
  */
 export function initSchema(db: Database.Database): void {
@@ -31,6 +46,7 @@ export function initSchema(db: Database.Database): void {
       -- searchable
       keywords TEXT, -- JSON数组
       fullText TEXT,
+      embedding TEXT, -- Base64 编码的向量（用于语义搜索）
 
       -- 时间戳
       createdAt TEXT NOT NULL,
@@ -98,4 +114,7 @@ export function initSchema(db: Database.Database): void {
       DELETE FROM memories_fts WHERE rowid = old.rowid;
     END;
   `);
+
+  // 5. 数据库迁移（兼容旧数据库）
+  migrateEmbeddingColumn(db);
 }

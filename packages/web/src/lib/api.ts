@@ -140,6 +140,29 @@ class ApiClient {
   async getProjects(): Promise<string[]> {
     return this.request<string[]>('/projects');
   }
+
+  // ===== 统计 =====
+
+  /**
+   * 获取统计信息
+   */
+  async getStats(projectId?: string): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    byProject: Record<string, number>;
+    recentCount: number;
+  }> {
+    const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+    return this.request(`/stats${query}`);
+  }
+
+  /**
+   * 获取项目列表（从统计）
+   */
+  async getProjectsWithCount(): Promise<{ id: string; count: number }[]> {
+    const res = await this.request<{ projects: { id: string; count: number }[] }>('/stats/projects');
+    return res.projects;
+  }
 }
 
 // 导出单例

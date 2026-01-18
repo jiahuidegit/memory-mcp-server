@@ -3,13 +3,23 @@
 import { useEffect, useRef } from 'react';
 import type { RelationNode } from '@emp/core';
 import cytoscape from 'cytoscape';
-import { getMemoryTypeColor } from '@/lib/utils';
 
 interface RelationsGraphProps {
   relationRoot: RelationNode;
+  onNodeClick?: (nodeId: string) => void;
 }
 
-export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
+// 类型颜色映射
+const typeColors: Record<string, string> = {
+  decision: '#10B981',
+  solution: '#F97316',
+  config: '#06B6D4',
+  code: '#3B82F6',
+  error: '#EF4444',
+  session: '#6B7280',
+};
+
+export function RelationsGraph({ relationRoot, onNodeClick }: RelationsGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
 
@@ -24,7 +34,7 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
       {
         data: {
           id: centerNode.meta.id,
-          label: centerNode.content.summary?.slice(0, 30) || 'Center',
+          label: centerNode.content.summary?.slice(0, 25) || '中心节点',
           type: centerNode.meta.type,
           isCenter: true,
         },
@@ -32,7 +42,7 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
       ...relations.map((rel) => ({
         data: {
           id: rel.memory.meta.id,
-          label: rel.memory.content.summary?.slice(0, 30) || 'Node',
+          label: rel.memory.content.summary?.slice(0, 25) || '节点',
           type: rel.memory.meta.type,
           isCenter: false,
         },
@@ -44,7 +54,6 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
         id: `${centerNode.meta.id}-${rel.memory.meta.id}`,
         source: centerNode.meta.id,
         target: rel.memory.meta.id,
-        // 根据 relations 字段推断关系类型
         relationType: 'relatedTo',
       },
     }));
@@ -59,78 +68,82 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
           style: {
             'background-color': (ele: any) => {
               const type = ele.data('type');
-              const colorClass = getMemoryTypeColor(type);
-              // 转换 Tailwind 类名为实际颜色 - 科技感配色
-              const colorMap: Record<string, string> = {
-                'bg-blue-500': '#3B82F6',    // 代码
-                'bg-green-500': '#10B981',   // 决策
-                'bg-cyan-500': '#06B6D4',    // 配置
-                'bg-purple-500': '#06B6D4',  // 兼容旧配置类名
-                'bg-orange-500': '#F97316',  // 解决方案
-                'bg-red-500': '#EF4444',     // 错误
-                'bg-gray-500': '#6B7280',    // 会话
-              };
-              return colorMap[colorClass] || '#6B7280';
+              return typeColors[type] || '#6B7280';
             },
+            'background-opacity': 0.9,
             label: 'data(label)',
-            'text-valign': 'center',
+            'text-valign': 'bottom',
             'text-halign': 'center',
+            'text-margin-y': 8,
             'text-wrap': 'wrap',
-            'text-max-width': '80px',
-            'font-size': '10px',
-            color: '#FFFFFF',
-            'text-outline-width': 2,
-            'text-outline-color': (ele: any) => {
+            'text-max-width': '100px',
+            'font-size': '11px',
+            'font-family': 'Inter, system-ui, sans-serif',
+            color: '#94A3B8',
+            width: (ele: any) => (ele.data('isCenter') ? 70 : 50),
+            height: (ele: any) => (ele.data('isCenter') ? 70 : 50),
+            'border-width': (ele: any) => (ele.data('isCenter') ? 4 : 2),
+            'border-color': (ele: any) => {
               const type = ele.data('type');
-              const colorClass = getMemoryTypeColor(type);
-              const colorMap: Record<string, string> = {
-                'bg-blue-500': '#3B82F6',
-                'bg-green-500': '#10B981',
-                'bg-cyan-500': '#06B6D4',
-                'bg-purple-500': '#06B6D4',  // 兼容旧配置类名
-                'bg-orange-500': '#F97316',
-                'bg-red-500': '#EF4444',
-                'bg-gray-500': '#6B7280',
-              };
-              return colorMap[colorClass] || '#6B7280';
+              const color = typeColors[type] || '#6B7280';
+              return ele.data('isCenter') ? '#fff' : color;
             },
-            width: (ele: any) => (ele.data('isCenter') ? 60 : 40),
-            height: (ele: any) => (ele.data('isCenter') ? 60 : 40),
+            'border-opacity': (ele: any) => (ele.data('isCenter') ? 0.8 : 0.5),
+            'overlay-opacity': 0,
           },
         },
         {
           selector: 'edge',
           style: {
             width: 2,
-            'line-color': '#CBD5E1',
-            'target-arrow-color': '#CBD5E1',
+            'line-color': '#475569',
+            'target-arrow-color': '#475569',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
-            'arrow-scale': 1,
-            opacity: 0.6,
+            'arrow-scale': 0.8,
+            opacity: 0.5,
+          },
+        },
+        {
+          selector: 'node:hover',
+          style: {
+            'border-width': 4,
+            'border-color': '#3B82F6',
+            'border-opacity': 1,
+            'background-opacity': 1,
           },
         },
         {
           selector: 'node:selected',
           style: {
-            'border-width': 3,
+            'border-width': 4,
             'border-color': '#3B82F6',
+            'border-opacity': 1,
+          },
+        },
+        {
+          selector: 'edge:hover',
+          style: {
+            'line-color': '#60A5FA',
+            'target-arrow-color': '#60A5FA',
+            opacity: 0.8,
+            width: 3,
           },
         },
       ],
       layout: {
         name: 'cose',
-        idealEdgeLength: 100,
-        nodeOverlap: 20,
+        idealEdgeLength: 120,
+        nodeOverlap: 30,
         refresh: 20,
         fit: true,
-        padding: 30,
+        padding: 50,
         randomize: false,
-        componentSpacing: 100,
-        nodeRepulsion: 400000,
+        componentSpacing: 120,
+        nodeRepulsion: 500000,
         edgeElasticity: 100,
         nestingFactor: 5,
-        gravity: 80,
+        gravity: 60,
         numIter: 1000,
         initialTemp: 200,
         coolingFactor: 0.95,
@@ -140,10 +153,29 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
       maxZoom: 3,
     });
 
-    // 添加交互
+    // 添加节点点击事件
     cyRef.current.on('tap', 'node', (evt) => {
       const node = evt.target;
-      console.log('点击节点:', node.data());
+      const nodeId = node.data('id');
+      const isCenter = node.data('isCenter');
+
+      // 如果不是中心节点，触发回调切换中心
+      if (!isCenter && onNodeClick) {
+        onNodeClick(nodeId);
+      }
+    });
+
+    // 添加鼠标样式
+    cyRef.current.on('mouseover', 'node', () => {
+      if (containerRef.current) {
+        containerRef.current.style.cursor = 'pointer';
+      }
+    });
+
+    cyRef.current.on('mouseout', 'node', () => {
+      if (containerRef.current) {
+        containerRef.current.style.cursor = 'default';
+      }
     });
 
     return () => {
@@ -151,12 +183,20 @@ export function RelationsGraph({ relationRoot }: RelationsGraphProps) {
         cyRef.current.destroy();
       }
     };
-  }, [relationRoot]);
+  }, [relationRoot, onNodeClick]);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-[600px] bg-background rounded-lg border border-border"
+      className="w-full h-[500px] bg-gradient-to-br from-slate-900/50 to-slate-800/30 rounded-xl border border-border/50"
+      style={{
+        backgroundImage: `
+          radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+          linear-gradient(rgba(30, 41, 59, 0.5) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(30, 41, 59, 0.5) 1px, transparent 1px)
+        `,
+        backgroundSize: '100% 100%, 30px 30px, 30px 30px',
+      }}
     />
   );
 }

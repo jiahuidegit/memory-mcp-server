@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Brain, Clock, Network, Search, Menu, X, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
+import { ProjectSelector } from './ProjectSelector';
 
 interface NavItem {
   name: string;
@@ -58,6 +59,12 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
+            {/* 项目选择器 */}
+            <ProjectSelector />
+
+            {/* 分隔线 */}
+            <div className="w-px h-6 bg-border/50 mx-2" />
+
             {navItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;

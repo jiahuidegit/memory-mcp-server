@@ -7,6 +7,7 @@ import { MemoryCard } from '@/components/MemoryCard';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterPanel } from '@/components/FilterPanel';
 import { CreateMemoryModal } from '@/components/CreateMemoryModal';
+import { useProject } from '@/context/ProjectContext';
 import api from '@/lib/api';
 import { Loader2, Plus } from 'lucide-react';
 
@@ -14,6 +15,7 @@ import { Loader2, Plus } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export default function MemoriesPage() {
+  const { currentProject } = useProject();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,13 @@ export default function MemoriesPage() {
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // 当全局项目切换时，更新本地过滤器（如果未手动指定项目）
+  useEffect(() => {
+    if (!filters.projectId) {
+      loadMemories();
+    }
+  }, [currentProject]);
+
   useEffect(() => {
     loadMemories();
   }, [filters]);
@@ -31,9 +40,11 @@ export default function MemoriesPage() {
   async function loadMemories() {
     try {
       setLoading(true);
+      // 优先使用本地过滤器的 projectId，否则使用全局项目
+      const projectId = filters.projectId || currentProject || undefined;
       const result: SearchResult = await api.getMemories({
         query: filters.query || '',
-        projectId: filters.projectId,
+        projectId,
         type: filters.type as any,
         limit: 50,
       });

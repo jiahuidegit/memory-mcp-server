@@ -11,7 +11,6 @@ import {
   Filter,
   Zap,
   FileText,
-  Brain,
   X,
   Sparkles,
   SlidersHorizontal,
@@ -20,16 +19,15 @@ import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-type SearchStrategy = 'exact' | 'fulltext' | 'semantic' | 'auto';
+type SearchStrategy = 'exact' | 'fulltext' | 'auto';
 
 const strategyConfig: Record<
   SearchStrategy,
   { label: string; icon: React.ComponentType<{ className?: string }>; desc: string; color: string }
 > = {
+  fulltext: { label: '全文搜索', icon: FileText, desc: '内容全文检索（推荐）', color: '#10B981' },
   exact: { label: '精确匹配', icon: Search, desc: 'ID 或关键词完全匹配', color: '#3B82F6' },
-  fulltext: { label: '全文搜索', icon: FileText, desc: '内容全文检索', color: '#10B981' },
-  semantic: { label: '语义搜索', icon: Brain, desc: 'AI 语义理解检索', color: '#06B6D4' },
-  auto: { label: '混合搜索', icon: Zap, desc: '综合多种策略', color: '#F97316' },
+  auto: { label: '智能搜索', icon: Zap, desc: '自动选择最优策略', color: '#F97316' },
 };
 
 const memoryTypes = [
@@ -44,7 +42,7 @@ const memoryTypes = [
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
-  const [strategy, setStrategy] = useState<SearchStrategy>('auto');
+  const [strategy, setStrategy] = useState<SearchStrategy>('fulltext');
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Memory[]>([]);
@@ -327,7 +325,7 @@ export default function SearchPage() {
           <div className="text-center py-20">
             <div className="relative inline-block mb-6">
               <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-2xl" />
-              <Brain className="relative w-16 h-16 text-muted-foreground/30" />
+              <Search className="relative w-16 h-16 text-muted-foreground/30" />
             </div>
             <p className="text-muted-foreground text-lg mb-2">未找到匹配的记忆</p>
             <p className="text-sm text-muted-foreground/70">尝试调整关键词或筛选条件</p>

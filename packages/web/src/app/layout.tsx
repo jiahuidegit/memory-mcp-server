@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Poppins, Open_Sans } from 'next/font/google';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { ProjectProvider } from '@/context/ProjectContext';
 import './globals.css';
 
 // 字体配置 - Modern Professional
@@ -31,7 +32,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={`${poppins.variable} ${openSans.variable} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <ProjectProvider>{children}</ProjectProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

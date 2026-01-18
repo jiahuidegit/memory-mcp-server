@@ -27,6 +27,9 @@ import {
   FileCode,
   Network,
   Search,
+  Copy,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 import { getMemoryTypeName, formatDate } from '@/lib/utils';
 
@@ -68,6 +71,19 @@ export default function MemoryDetailPage() {
   const [summary, setSummary] = useState('');
   const [tagsStr, setTagsStr] = useState('');
   const [dataStr, setDataStr] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // 复制 ID 到剪贴板
+  async function copyId() {
+    if (!memory) return;
+    try {
+      await navigator.clipboard.writeText(memory.meta.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+    }
+  }
 
   useEffect(() => {
     const id = params?.id as string | undefined;
@@ -412,9 +428,22 @@ export default function MemoryDetailPage() {
                 <h2 className="text-lg font-heading font-semibold">元数据</h2>
               </div>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between items-start gap-2">
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-muted-foreground shrink-0">ID</span>
-                  <span className="truncate text-right font-mono text-xs" title={meta.id}>{meta.id}</span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="truncate font-mono text-xs" title={meta.id}>{meta.id}</span>
+                    <button
+                      onClick={copyId}
+                      className="p-1 rounded hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                      title="复制 ID"
+                    >
+                      {copied ? (
+                        <Check className="w-3.5 h-3.5 text-green-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">类型</span>
@@ -468,9 +497,13 @@ export default function MemoryDetailPage() {
                 <div className="border-t border-border/30 pt-4">
                   <span className="text-sm text-muted-foreground block mb-3">关联功能</span>
                   <div className="flex flex-col gap-2">
-                    <Link href="/relations" className="flex items-center gap-2 text-sm hover:text-blue-400 transition-colors cursor-pointer">
+                    <Link
+                      href={`/relations?id=${meta.id}`}
+                      className="flex items-center gap-2 text-sm hover:text-cyan-400 transition-colors cursor-pointer group"
+                    >
                       <Network className="w-4 h-4" />
-                      关系链
+                      <span>查看关系链</span>
+                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </Link>
                     <Link href="/timeline" className="flex items-center gap-2 text-sm hover:text-blue-400 transition-colors cursor-pointer">
                       <Clock className="w-4 h-4" />

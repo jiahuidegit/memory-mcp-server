@@ -15,6 +15,10 @@ import {
   type DecisionContext,
   type SolutionContext,
   type SessionContext,
+  type Vector,
+  serializeVector,
+  deserializeVector,
+  cosineSimilarity,
 } from '@emp/core';
 import { initSchema } from './schema.js';
 import { LRUCache } from './cache.js';
@@ -46,6 +50,7 @@ export class SQLiteStorage implements IStorage {
     type?: MemoryType;
     tags?: string[];
     sessionId?: string;
+    embedding?: Vector;
     relations?: {
       replaces?: string[];
       relatedTo?: string[];
@@ -61,11 +66,11 @@ export class SQLiteStorage implements IStorage {
       INSERT INTO memories (
         id, projectId, sessionId, timestamp, type, tags,
         summary, data, replaces, relatedTo, impacts, derivedFrom,
-        context, keywords, fullText, createdAt, updatedAt
+        context, keywords, fullText, embedding, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -85,6 +90,7 @@ export class SQLiteStorage implements IStorage {
       JSON.stringify(params.rawContext), // context
       params.tags ? JSON.stringify(params.tags) : null, // keywords
       params.content, // fullText
+      params.embedding ? serializeVector(params.embedding) : null, // embedding
       timestamp,
       timestamp
     );
@@ -105,6 +111,7 @@ export class SQLiteStorage implements IStorage {
       projectId: string;
       tags?: string[];
       sessionId?: string;
+      embedding?: Vector;
       relations?: {
         replaces?: string[];
         relatedTo?: string[];
@@ -123,11 +130,11 @@ export class SQLiteStorage implements IStorage {
       INSERT INTO memories (
         id, projectId, sessionId, timestamp, type, tags,
         summary, data, replaces, relatedTo, impacts, derivedFrom,
-        context, keywords, fullText, createdAt, updatedAt
+        context, keywords, fullText, embedding, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -152,6 +159,7 @@ export class SQLiteStorage implements IStorage {
       }),
       JSON.stringify(keywords),
       fullText,
+      params.embedding ? serializeVector(params.embedding) : null,
       timestamp,
       timestamp
     );
@@ -172,6 +180,7 @@ export class SQLiteStorage implements IStorage {
       projectId: string;
       tags?: string[];
       sessionId?: string;
+      embedding?: Vector;
       artifacts?: Record<string, string>;
       relations?: {
         replaces?: string[];
@@ -191,11 +200,11 @@ export class SQLiteStorage implements IStorage {
       INSERT INTO memories (
         id, projectId, sessionId, timestamp, type, tags,
         summary, data, replaces, relatedTo, impacts, derivedFrom,
-        context, keywords, fullText, createdAt, updatedAt
+        context, keywords, fullText, embedding, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -221,6 +230,7 @@ export class SQLiteStorage implements IStorage {
       }),
       JSON.stringify(keywords),
       fullText,
+      params.embedding ? serializeVector(params.embedding) : null,
       timestamp,
       timestamp
     );
@@ -240,6 +250,7 @@ export class SQLiteStorage implements IStorage {
     params: SessionContext & {
       projectId: string;
       sessionId?: string;
+      embedding?: Vector;
     }
   ): Promise<{ id: string; success: boolean }> {
     const id = `mem_${nanoid()}`;
@@ -252,11 +263,11 @@ export class SQLiteStorage implements IStorage {
       INSERT INTO memories (
         id, projectId, sessionId, timestamp, type, tags,
         summary, data, replaces, relatedTo, impacts, derivedFrom,
-        context, keywords, fullText, createdAt, updatedAt
+        context, keywords, fullText, embedding, createdAt, updatedAt
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -281,6 +292,7 @@ export class SQLiteStorage implements IStorage {
       }),
       JSON.stringify(keywords),
       fullText,
+      params.embedding ? serializeVector(params.embedding) : null,
       timestamp,
       timestamp
     );
@@ -321,19 +333,34 @@ export class SQLiteStorage implements IStorage {
     // 策略选择
     const strategyStartTime = Date.now();
 
+    // 如果提供了 queryVector，直接使用语义搜索
+    if (filters.queryVector && strategy !== SearchStrategy.EXACT && strategy !== SearchStrategy.FULLTEXT) {
+      dbStartTime = Date.now();
+      results = this.semanticSearch(filters, limit, offset);
+      dbEndTime = Date.now();
+      actualStrategy = SearchStrategy.SEMANTIC;
+    }
     // L1: 精确匹配（优先）
-    if (strategy === SearchStrategy.EXACT || strategy === SearchStrategy.AUTO) {
+    else if (strategy === SearchStrategy.EXACT || strategy === SearchStrategy.AUTO) {
       dbStartTime = Date.now();
       results = this.exactSearch(filters, limit, offset);
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.EXACT;
 
-      // 如果L1找不到结果，降级到L2全文搜索
-      if (results.length === 0 && strategy === SearchStrategy.AUTO) {
+      // AUTO 模式：如果L1找不到结果，降级到L2全文搜索
+      if (results.length === 0 && strategy === SearchStrategy.AUTO && filters.query) {
         dbStartTime = Date.now();
         results = this.fulltextSearch(filters, limit, offset);
         dbEndTime = Date.now();
         actualStrategy = SearchStrategy.FULLTEXT;
+
+        // AUTO 模式：如果L2也找不到，且有 queryVector，降级到L3语义搜索
+        if (results.length === 0 && filters.queryVector) {
+          dbStartTime = Date.now();
+          results = this.semanticSearch(filters, limit, offset);
+          dbEndTime = Date.now();
+          actualStrategy = SearchStrategy.SEMANTIC;
+        }
       }
     }
     // L2: 全文搜索
@@ -343,7 +370,22 @@ export class SQLiteStorage implements IStorage {
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.FULLTEXT;
     }
-    // L3: 语义检索（暂未实现）
+    // L3: 语义检索
+    else if (strategy === SearchStrategy.SEMANTIC) {
+      if (!filters.queryVector) {
+        // 无向量时降级到全文搜索
+        dbStartTime = Date.now();
+        results = this.fulltextSearch(filters, limit, offset);
+        dbEndTime = Date.now();
+        actualStrategy = SearchStrategy.FULLTEXT;
+      } else {
+        dbStartTime = Date.now();
+        results = this.semanticSearch(filters, limit, offset);
+        dbEndTime = Date.now();
+        actualStrategy = SearchStrategy.SEMANTIC;
+      }
+    }
+    // 默认：全文搜索
     else {
       dbStartTime = Date.now();
       results = this.fulltextSearch(filters, limit, offset);
@@ -454,6 +496,69 @@ export class SQLiteStorage implements IStorage {
     const rows = stmt.all(...params) as any[];
 
     return rows.map(this.rowToMemory);
+  }
+
+  /**
+   * L3: 语义搜索（向量相似度）
+   * 基于 cosine similarity 进行向量检索
+   */
+  private semanticSearch(filters: SearchFilters, limit: number, offset: number): Memory[] {
+    if (!filters.queryVector) {
+      return [];
+    }
+
+    const threshold = filters.similarityThreshold ?? 0.7;
+
+    // 构建基础查询（只取有 embedding 的记录）
+    let sql = 'SELECT * FROM memories WHERE embedding IS NOT NULL';
+    const params: any[] = [];
+
+    if (filters.projectId) {
+      sql += ' AND projectId = ?';
+      params.push(filters.projectId);
+    }
+
+    if (filters.type) {
+      sql += ' AND type = ?';
+      params.push(filters.type);
+    }
+
+    if (filters.sessionId) {
+      sql += ' AND sessionId = ?';
+      params.push(filters.sessionId);
+    }
+
+    sql += ' ORDER BY timestamp DESC';
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as any[];
+
+    // 计算相似度并过滤
+    const queryVector = filters.queryVector;
+    const scoredResults: { row: any; similarity: number }[] = [];
+
+    for (const row of rows) {
+      try {
+        const storedVector = deserializeVector(row.embedding);
+        const similarity = cosineSimilarity(queryVector, storedVector);
+
+        // 只保留超过阈值的结果
+        if (similarity >= threshold) {
+          scoredResults.push({ row, similarity });
+        }
+      } catch {
+        // 向量解析失败，跳过
+        continue;
+      }
+    }
+
+    // 按相似度降序排序
+    scoredResults.sort((a, b) => b.similarity - a.similarity);
+
+    // 应用分页
+    const paginatedResults = scoredResults.slice(offset, offset + limit);
+
+    return paginatedResults.map((item) => this.rowToMemory(item.row));
   }
 
   /**
@@ -685,5 +790,67 @@ export class SQLiteStorage implements IStorage {
    */
   close(): void {
     this.db.close();
+  }
+
+  /**
+   * 获取统计信息
+   */
+  async getStats(projectId?: string): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    byProject: Record<string, number>;
+    recentCount: number;
+  }> {
+    // 总数查询
+    let totalSql = 'SELECT COUNT(*) as count FROM memories';
+    const totalParams: any[] = [];
+    if (projectId) {
+      totalSql += ' WHERE projectId = ?';
+      totalParams.push(projectId);
+    }
+    const totalResult = this.db.prepare(totalSql).get(...totalParams) as { count: number };
+
+    // 按类型统计
+    let typeSql = 'SELECT type, COUNT(*) as count FROM memories';
+    const typeParams: any[] = [];
+    if (projectId) {
+      typeSql += ' WHERE projectId = ?';
+      typeParams.push(projectId);
+    }
+    typeSql += ' GROUP BY type';
+    const typeResults = this.db.prepare(typeSql).all(...typeParams) as { type: string; count: number }[];
+    const byType: Record<string, number> = {};
+    typeResults.forEach((row) => {
+      byType[row.type] = row.count;
+    });
+
+    // 按项目统计
+    let projectSql = 'SELECT projectId, COUNT(*) as count FROM memories GROUP BY projectId';
+    if (projectId) {
+      projectSql = 'SELECT projectId, COUNT(*) as count FROM memories WHERE projectId = ? GROUP BY projectId';
+    }
+    const projectResults = this.db.prepare(projectSql).all(...(projectId ? [projectId] : [])) as { projectId: string; count: number }[];
+    const byProject: Record<string, number> = {};
+    projectResults.forEach((row) => {
+      byProject[row.projectId] = row.count;
+    });
+
+    // 最近 7 天统计
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    let recentSql = 'SELECT COUNT(*) as count FROM memories WHERE timestamp >= ?';
+    const recentParams: any[] = [sevenDaysAgo.toISOString()];
+    if (projectId) {
+      recentSql += ' AND projectId = ?';
+      recentParams.push(projectId);
+    }
+    const recentResult = this.db.prepare(recentSql).get(...recentParams) as { count: number };
+
+    return {
+      total: totalResult.count,
+      byType,
+      byProject,
+      recentCount: recentResult.count,
+    };
   }
 }
