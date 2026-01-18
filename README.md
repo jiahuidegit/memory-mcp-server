@@ -385,6 +385,109 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 
 ---
 
+## 🖥️ Web Dashboard
+
+Memory Pulse includes a beautiful Web Dashboard for visualizing and managing your memories.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Memory Management** | Browse, search, and create memories with a modern UI |
+| **Timeline View** | See your memory evolution over time |
+| **Relationship Graph** | Interactive visualization of memory connections |
+| **Project Filtering** | Switch between projects with one click |
+| **Full-text Search** | Quickly find any memory |
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/jiahuidegit/memory-mcp-server.git
+cd memory-mcp-server
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Start the API server (default: http://localhost:3000)
+pnpm --filter @emp/api dev
+
+# Start the Web Dashboard (default: http://localhost:3001)
+pnpm --filter @emp/web dev
+```
+
+### Configuration
+
+The Web Dashboard connects to the API server. Configure the connection in `packages/web/.env`:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+For production deployment with PostgreSQL:
+
+```bash
+# API server environment
+DATABASE_URL=postgresql://user:password@localhost:5432/memory_pulse
+```
+
+### Screenshots
+
+Coming soon...
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Memory Pulse System                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │ Claude Code  │    │Claude Desktop│    │  Other MCP   │       │
+│  │              │    │              │    │   Clients    │       │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘       │
+│         │                   │                   │                │
+│         └───────────────────┼───────────────────┘                │
+│                             │                                    │
+│                             ▼                                    │
+│              ┌─────────────────────────────┐                     │
+│              │     MCP Server (stdio)      │                     │
+│              │   memory-pulse-mcp-server   │                     │
+│              └─────────────┬───────────────┘                     │
+│                            │                                     │
+│         ┌──────────────────┼──────────────────┐                  │
+│         ▼                  ▼                  ▼                  │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐            │
+│  │   SQLite    │   │ PostgreSQL  │   │   API       │            │
+│  │  (Local)    │   │  (Remote)   │   │  Server     │            │
+│  └─────────────┘   └──────┬──────┘   └──────┬──────┘            │
+│                           │                 │                    │
+│                           └────────┬────────┘                    │
+│                                    ▼                             │
+│                          ┌─────────────────┐                     │
+│                          │  Web Dashboard  │                     │
+│                          │  (Next.js App)  │                     │
+│                          └─────────────────┘                     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Components
+
+| Component | Description | Technology |
+|-----------|-------------|------------|
+| **MCP Server** | Core memory operations via MCP protocol | Node.js, TypeScript |
+| **Storage Layer** | Flexible storage backends | SQLite / PostgreSQL |
+| **API Server** | RESTful API for web access | Express.js |
+| **Web Dashboard** | Visual management interface | Next.js 15, React 19 |
+
+---
+
 ## 🔒 Security & Privacy
 
 1. **Local-first** - All data stored locally in SQLite, no cloud dependency
@@ -401,7 +504,7 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 - [x] PostgreSQL cloud support
 - [x] Multi-level retrieval (Exact + Full-text)
 - [x] Decision/Solution/Session structured storage
-- [ ] Web Dashboard for visualization
+- [x] Web Dashboard for visualization
 - [ ] CLI tool for manual operations
 - [ ] Semantic search (Embedding)
 - [ ] Team collaboration features

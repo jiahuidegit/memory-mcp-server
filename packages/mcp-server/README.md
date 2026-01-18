@@ -394,6 +394,22 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 
 ---
 
+## Web Dashboard (Optional)
+
+Memory Pulse includes an optional Web Dashboard for visualizing and managing your memories.
+
+Check out the full project repository for the Web Dashboard:
+👉 [https://github.com/jiahuidegit/memory-mcp-server](https://github.com/jiahuidegit/memory-mcp-server)
+
+Features:
+- Memory management with modern UI
+- Timeline view
+- Relationship graph visualization
+- Project filtering
+- Full-text search
+
+---
+
 ## Roadmap
 
 - [x] MCP Server core functionality
@@ -401,7 +417,7 @@ Memory Pulse uses a **3-level cascade retrieval strategy**:
 - [x] PostgreSQL cloud support
 - [x] Multi-level retrieval (Exact + Full-text)
 - [x] Decision/Solution/Session structured storage
-- [ ] Web Dashboard for visualization
+- [x] Web Dashboard for visualization
 - [ ] CLI tool for manual operations
 - [ ] Semantic search (Embedding)
 - [ ] Team collaboration features
