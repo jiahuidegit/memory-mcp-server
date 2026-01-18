@@ -107,12 +107,6 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@emp/core':
-        specifier: workspace:*
-        version: link:../core
-      '@emp/storage':
-        specifier: workspace:*
-        version: link:../storage
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.4
         version: 1.25.2(hono@4.11.4)(zod@4.3.5)
