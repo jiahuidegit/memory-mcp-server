@@ -385,6 +385,113 @@ Memory Pulse 采用 **三级级联检索策略**：
 
 ---
 
+## 🖥️ Web Dashboard
+
+Memory Pulse 提供了精美的 Web Dashboard，用于可视化管理记忆。
+
+### 功能特性
+
+| 功能 | 说明 |
+|------|------|
+| **记忆管理** | 浏览、搜索、创建记忆，现代化 UI |
+| **时间线视图** | 查看记忆随时间的演变 |
+| **关系图谱** | 交互式可视化记忆关联 |
+| **项目筛选** | 一键切换项目 |
+| **全文搜索** | 快速定位任何记忆 |
+
+### 截图预览
+
+**首页概览**
+![首页概览](assets/images/dashboard-home.png)
+
+**关系图谱**
+![关系图谱](assets/images/dashboard-relations.png)
+
+### 快速启动
+
+```bash
+# 克隆仓库
+git clone https://github.com/jiahuidegit/memory-mcp-server.git
+cd memory-mcp-server
+
+# 安装依赖
+pnpm install
+
+# 构建所有包
+pnpm build
+
+# 启动 API 服务（默认: http://localhost:3000）
+pnpm --filter @emp/api dev
+
+# 启动 Web Dashboard（默认: http://localhost:3001）
+pnpm --filter @emp/web dev
+```
+
+### 配置说明
+
+Web Dashboard 连接 API 服务。在 `packages/web/.env` 中配置：
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3000
+```
+
+生产部署使用 PostgreSQL：
+
+```bash
+# API 服务环境变量
+DATABASE_URL=postgresql://user:password@localhost:5432/memory_pulse
+```
+
+---
+
+## 🏗️ 系统架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Memory Pulse 系统架构                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │ Claude Code  │    │Claude Desktop│    │  其他 MCP    │       │
+│  │              │    │              │    │   客户端     │       │
+│  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘       │
+│         │                   │                   │                │
+│         └───────────────────┼───────────────────┘                │
+│                             │                                    │
+│                             ▼                                    │
+│              ┌─────────────────────────────┐                     │
+│              │     MCP Server (stdio)      │                     │
+│              │   memory-pulse-mcp-server   │                     │
+│              └─────────────┬───────────────┘                     │
+│                            │                                     │
+│         ┌──────────────────┼──────────────────┐                  │
+│         ▼                  ▼                  ▼                  │
+│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐            │
+│  │   SQLite    │   │ PostgreSQL  │   │   API       │            │
+│  │  （本地）    │   │  （远程）    │   │  服务器     │            │
+│  └─────────────┘   └──────┬──────┘   └──────┬──────┘            │
+│                           │                 │                    │
+│                           └────────┬────────┘                    │
+│                                    ▼                             │
+│                          ┌─────────────────┐                     │
+│                          │  Web Dashboard  │                     │
+│                          │  (Next.js 应用)  │                     │
+│                          └─────────────────┘                     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 组件说明
+
+| 组件 | 说明 | 技术栈 |
+|------|------|--------|
+| **MCP Server** | 通过 MCP 协议提供核心记忆操作 | Node.js, TypeScript |
+| **存储层** | 灵活的存储后端 | SQLite / PostgreSQL |
+| **API 服务** | 为 Web 提供 RESTful API | Express.js |
+| **Web Dashboard** | 可视化管理界面 | Next.js 15, React 19 |
+
+---
+
 ## 🔒 安全与隐私
 
 1. **本地优先** - 所有数据存储在本地 SQLite，无云依赖
@@ -401,7 +508,7 @@ Memory Pulse 采用 **三级级联检索策略**：
 - [x] PostgreSQL 云端支持
 - [x] 多级检索（精确 + 全文）
 - [x] Decision/Solution/Session 结构化存储
-- [ ] Web Dashboard 可视化
+- [x] Web Dashboard 可视化
 - [ ] CLI 工具
 - [ ] 语义搜索（Embedding）
 - [ ] 团队协作功能

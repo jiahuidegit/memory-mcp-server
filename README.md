@@ -436,7 +436,11 @@ DATABASE_URL=postgresql://user:password@localhost:5432/memory_pulse
 
 ### Screenshots
 
-Coming soon...
+**Dashboard Home**
+![Dashboard Home](assets/images/dashboard-home.png)
+
+**Relationship Graph**
+![Relationship Graph](assets/images/dashboard-relations.png)
 
 ---
 
