@@ -1,6 +1,6 @@
 {
   "name": "memory-pulse-mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Memory Pulse - 精准、结构化的 AI 上下文记忆系统 MCP Server",
   "type": "module",
   "main": "./dist/index.js",
@@ -40,8 +40,6 @@
     "url": "https://github.com/jiahuidegit/memory-mcp-server/issues"
   },
   "dependencies": {
-    "@emp/core": "workspace:*",
-    "@emp/storage": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "better-sqlite3": "^11.0.0",
     "nanoid": "^5.0.9"
