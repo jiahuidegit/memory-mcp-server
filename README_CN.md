@@ -332,6 +332,107 @@ AI：[调用 mpulse_relations]
 
 ---
 
+## 📝 AI 提示词配置（CLAUDE.md）
+
+为了让 AI 自动执行记忆存储和检索，你可以在项目的 `CLAUDE.md` 或全局的 `~/.claude/CLAUDE.md` 中添加以下提示词规则：
+
+### 会话启动协议（推荐）
+
+在 CLAUDE.md 开头添加，确保 AI 每次会话开始时自动检索历史记忆：
+
+```markdown
+# ⚠️ 会话启动协议（最高优先级）
+
+**在处理任何用户请求之前，必须先执行以下步骤：**
+
+## 第一步：提取项目名
+从当前工作目录提取项目名（最后一级文件夹名）
+例：`/Users/xxx/work/my-app` → projectId = `my-app`
+
+## 第二步：检索历史记忆（必须执行）
+调用 mpulse_recall 检索该项目的历史记忆：
+- query: "项目上下文 架构决策 未完成任务 配置信息"
+- projectId: 提取的项目名
+
+## 第三步：汇报记忆结果
+- 有记忆 → 简要汇报关键信息后再处理用户请求
+- 无记忆 → 说明"该项目暂无历史记忆"后再处理用户请求
+
+**⛔ 未执行记忆检索就处理用户请求 = 违规**
+```
+
+### 自动存储规则
+
+添加以下规则，让 AI 在关键节点自动存储记忆：
+
+```markdown
+# Memory Pulse 记忆管理规则
+
+## 强制存储时机
+
+| 时机 | 使用工具 | 说明 |
+|------|---------|------|
+| 架构/技术决策后 | `mpulse_store_decision` | 必须包含：问题、选项、选择、理由 |
+| 解决复杂问题后 | `mpulse_store_solution` | 必须包含：问题、根因、方案 |
+| 会话结束前 | `mpulse_store_session` | 总结本次工作、未完成任务 |
+| 重要配置信息 | `mpulse_store` | 服务器信息、环境配置等 |
+
+## 存储质量要求
+
+### content vs rawContext 区别（重要！）
+- **content**: 简洁摘要（1-2句话），用于列表展示
+- **rawContext**: 完整原始数据，包括所有细节
+
+### 示例
+```json
+{
+  "content": "配置了 PostgreSQL 数据库连接",
+  "rawContext": {
+    "host": "10.10.1.12",
+    "port": 5432,
+    "database": "my_app",
+    "user": "postgres",
+    "connectionString": "postgresql://postgres:xxx@10.10.1.12:5432/my_app",
+    "configFile": "/opt/app/.env"
+  }
+}
+```
+
+## 检索时机
+
+- 遇到类似问题时 → 先检索历史解决方案
+- 技术选型前 → 检索之前的决策记录
+- 继续之前的工作 → 检索上次会话总结
+```
+
+### 完整配置示例
+
+```markdown
+# CLAUDE.md
+
+## 会话启动协议
+[上面的会话启动协议内容]
+
+## Memory Pulse 使用规则
+
+### 存储规则
+- 做出技术决策后 → 必须调用 mpulse_store_decision
+- 解决问题后 → 必须调用 mpulse_store_solution
+- 会话结束前 → 必须调用 mpulse_store_session
+- 用户说"记住这个" → 立即调用 mpulse_store
+
+### 检索规则
+- 会话开始 → 自动检索项目历史
+- 遇到问题 → 先检索是否有相关解决方案
+- 技术选型 → 检索之前的决策记录
+
+### projectId 命名规则
+- 使用当前项目文件夹名作为 projectId
+- 跨项目通用知识使用 projectId = "global"
+```
+
+---
+
 ## 🔍 检索算法
 
 Memory Pulse 采用 **三级级联检索策略**：

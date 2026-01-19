@@ -270,6 +270,7 @@ export class PostgreSQLStorage implements IStorage {
 
     let actualStrategy: SearchStrategy;
     let results: Memory[];
+    let total: number;
     let dbStartTime: number;
     let dbEndTime: number;
 
@@ -279,14 +280,18 @@ export class PostgreSQLStorage implements IStorage {
     // L1: 精确匹配（优先）
     if (strategy === SearchStrategy.EXACT || strategy === SearchStrategy.AUTO) {
       dbStartTime = Date.now();
-      results = await this.exactSearch(filters, limit, offset);
+      const searchResult = await this.exactSearchWithCount(filters, limit, offset);
+      results = searchResult.memories;
+      total = searchResult.total;
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.EXACT;
 
       // 如果L1找不到结果，降级到L2全文搜索
       if (results.length === 0 && strategy === SearchStrategy.AUTO) {
         dbStartTime = Date.now();
-        results = await this.fulltextSearch(filters, limit, offset);
+        const fulltextResult = await this.fulltextSearchWithCount(filters, limit, offset);
+        results = fulltextResult.memories;
+        total = fulltextResult.total;
         dbEndTime = Date.now();
         actualStrategy = SearchStrategy.FULLTEXT;
       }
@@ -294,14 +299,18 @@ export class PostgreSQLStorage implements IStorage {
     // L2: 全文搜索
     else if (strategy === SearchStrategy.FULLTEXT) {
       dbStartTime = Date.now();
-      results = await this.fulltextSearch(filters, limit, offset);
+      const searchResult = await this.fulltextSearchWithCount(filters, limit, offset);
+      results = searchResult.memories;
+      total = searchResult.total;
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.FULLTEXT;
     }
     // L3: 语义检索（暂未实现）
     else {
       dbStartTime = Date.now();
-      results = await this.fulltextSearch(filters, limit, offset);
+      const searchResult = await this.fulltextSearchWithCount(filters, limit, offset);
+      results = searchResult.memories;
+      total = searchResult.total;
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.FULLTEXT;
     }
@@ -315,7 +324,7 @@ export class PostgreSQLStorage implements IStorage {
 
     const result: SearchResult = {
       memories: results,
-      total: results.length,
+      total, // 返回真正的总数
       strategy: actualStrategy,
       took,
       metrics: {
@@ -336,13 +345,13 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   /**
-   * L1: 精确匹配检索
+   * L1: 精确匹配检索（带总数）
    */
-  private async exactSearch(
+  private async exactSearchWithCount(
     filters: SearchFilters,
     limit: number,
     offset: number
-  ): Promise<Memory[]> {
+  ): Promise<{ memories: Memory[]; total: number }> {
     const where: Prisma.MemoryWhereInput = {};
 
     if (filters.projectId) {
@@ -364,14 +373,74 @@ export class PostgreSQLStorage implements IStorage {
       ];
     }
 
-    const rows = await this.prisma.memory.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
-      take: limit,
-      skip: offset,
-    });
+    // 并行执行查询和计数
+    const [rows, total] = await Promise.all([
+      this.prisma.memory.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.memory.count({ where }),
+    ]);
 
-    return rows.map(this.rowToMemory);
+    return { memories: rows.map(this.rowToMemory), total };
+  }
+
+  /**
+   * L1: 精确匹配检索
+   */
+  private async exactSearch(
+    filters: SearchFilters,
+    limit: number,
+    offset: number
+  ): Promise<Memory[]> {
+    const result = await this.exactSearchWithCount(filters, limit, offset);
+    return result.memories;
+  }
+
+  /**
+   * L2: 全文搜索（PostgreSQL，带总数）
+   */
+  private async fulltextSearchWithCount(
+    filters: SearchFilters,
+    limit: number,
+    offset: number
+  ): Promise<{ memories: Memory[]; total: number }> {
+    // 使用PostgreSQL的ILIKE进行简单全文搜索
+    const where: Prisma.MemoryWhereInput = {};
+
+    if (filters.projectId) {
+      where.projectId = filters.projectId;
+    }
+
+    if (filters.type) {
+      where.type = filters.type;
+    }
+
+    if (filters.sessionId) {
+      where.sessionId = filters.sessionId;
+    }
+
+    if (filters.query) {
+      where.OR = [
+        { summary: { contains: filters.query, mode: 'insensitive' } },
+        { fullText: { contains: filters.query, mode: 'insensitive' } },
+      ];
+    }
+
+    // 并行执行查询和计数
+    const [rows, total] = await Promise.all([
+      this.prisma.memory.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.memory.count({ where }),
+    ]);
+
+    return { memories: rows.map(this.rowToMemory), total };
   }
 
   /**
@@ -382,37 +451,8 @@ export class PostgreSQLStorage implements IStorage {
     limit: number,
     offset: number
   ): Promise<Memory[]> {
-    // 使用PostgreSQL的ILIKE进行简单全文搜索
-    // 生产环境可以使用pg_trgm或to_tsvector实现更强大的搜索
-    const where: Prisma.MemoryWhereInput = {};
-
-    if (filters.projectId) {
-      where.projectId = filters.projectId;
-    }
-
-    if (filters.type) {
-      where.type = filters.type;
-    }
-
-    if (filters.sessionId) {
-      where.sessionId = filters.sessionId;
-    }
-
-    if (filters.query) {
-      where.OR = [
-        { summary: { contains: filters.query, mode: 'insensitive' } },
-        { fullText: { contains: filters.query, mode: 'insensitive' } },
-      ];
-    }
-
-    const rows = await this.prisma.memory.findMany({
-      where,
-      orderBy: { timestamp: 'desc' },
-      take: limit,
-      skip: offset,
-    });
-
-    return rows.map(this.rowToMemory);
+    const result = await this.fulltextSearchWithCount(filters, limit, offset);
+    return result.memories;
   }
 
   /**

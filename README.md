@@ -332,6 +332,107 @@ Relationships:
 
 ---
 
+## 📝 AI Prompt Configuration (CLAUDE.md)
+
+To make AI automatically store and retrieve memories, add the following prompt rules to your project's `CLAUDE.md` or global `~/.claude/CLAUDE.md`:
+
+### Session Startup Protocol (Recommended)
+
+Add at the beginning of CLAUDE.md to ensure AI retrieves history at session start:
+
+```markdown
+# ⚠️ Session Startup Protocol (Highest Priority)
+
+**Before processing any user request, execute the following steps:**
+
+## Step 1: Extract Project Name
+Extract project name from current working directory (last folder name)
+Example: `/Users/xxx/work/my-app` → projectId = `my-app`
+
+## Step 2: Retrieve History (Mandatory)
+Call mpulse_recall to retrieve project history:
+- query: "project context architecture decisions unfinished tasks config"
+- projectId: extracted project name
+
+## Step 3: Report Memory Results
+- Has memories → Brief summary before processing user request
+- No memories → State "No history found" then process user request
+
+**⛔ Processing request without memory retrieval = Violation**
+```
+
+### Auto-Store Rules
+
+Add these rules to make AI automatically store memories at key points:
+
+```markdown
+# Memory Pulse Rules
+
+## Mandatory Storage Triggers
+
+| Trigger | Tool | Required Fields |
+|---------|------|-----------------|
+| After architecture/tech decisions | `mpulse_store_decision` | question, options, chosen, reason |
+| After solving complex problems | `mpulse_store_solution` | problem, rootCause, solution |
+| Before session ends | `mpulse_store_session` | summary, unfinished tasks |
+| Important config info | `mpulse_store` | content, rawContext |
+
+## Storage Quality Requirements
+
+### content vs rawContext (Important!)
+- **content**: Brief summary (1-2 sentences), for list display
+- **rawContext**: Complete original data, including all details
+
+### Example
+```json
+{
+  "content": "Configured PostgreSQL database connection",
+  "rawContext": {
+    "host": "10.10.1.12",
+    "port": 5432,
+    "database": "my_app",
+    "user": "postgres",
+    "connectionString": "postgresql://postgres:xxx@10.10.1.12:5432/my_app",
+    "configFile": "/opt/app/.env"
+  }
+}
+```
+
+## Retrieval Triggers
+
+- Encountering similar issues → Search for existing solutions first
+- Before tech decisions → Check previous decision records
+- Continuing previous work → Retrieve last session summary
+```
+
+### Complete Configuration Example
+
+```markdown
+# CLAUDE.md
+
+## Session Startup Protocol
+[Session startup protocol content above]
+
+## Memory Pulse Usage Rules
+
+### Storage Rules
+- After tech decisions → Must call mpulse_store_decision
+- After solving problems → Must call mpulse_store_solution
+- Before session ends → Must call mpulse_store_session
+- User says "remember this" → Immediately call mpulse_store
+
+### Retrieval Rules
+- Session start → Auto-retrieve project history
+- Facing issues → Search for related solutions first
+- Tech decisions → Check previous decision records
+
+### projectId Naming Convention
+- Use current project folder name as projectId
+- Cross-project knowledge uses projectId = "global"
+```
+
+---
+
 ## 🔍 Retrieval Algorithm
 
 Memory Pulse uses a **3-level cascade retrieval strategy**:

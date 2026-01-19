@@ -41,14 +41,15 @@ class ApiClient {
   /**
    * 获取记忆列表
    */
-  async getMemories(filters?: SearchFilters): Promise<SearchResult> {
+  async getMemories(filters?: SearchFilters & { offset?: number }): Promise<SearchResult & { limit?: number; offset?: number }> {
     const query = new URLSearchParams();
     if (filters?.query) query.set('query', filters.query);
     if (filters?.projectId) query.set('projectId', filters.projectId);
     if (filters?.type) query.set('type', filters.type);
     if (filters?.limit) query.set('limit', filters.limit.toString());
+    if (filters?.offset !== undefined) query.set('offset', filters.offset.toString());
 
-    return this.request<SearchResult>(`/memories?${query}`);
+    return this.request<SearchResult & { limit?: number; offset?: number }>(`/memories?${query}`);
   }
 
   /**

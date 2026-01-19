@@ -12,6 +12,7 @@ app.get('/', async (c) => {
   const projectId = c.req.query('projectId');
   const type = c.req.query('type');
   const limit = parseInt(c.req.query('limit') || '50', 10);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
   const query = c.req.query('query');
 
   const storage = getStorage();
@@ -23,12 +24,15 @@ app.get('/', async (c) => {
     type: type as MemoryType | undefined,
     strategy: SearchStrategy.EXACT,
     limit,
+    offset,
   });
 
   return c.json({
     memories: results.memories,
     total: results.total,
     count: results.memories.length,
+    limit,
+    offset,
   });
 });
 
