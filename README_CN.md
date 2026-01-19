@@ -158,12 +158,12 @@ npm list -g memory-pulse-mcp-server
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `MEMORY_STORAGE` | 存储类型：`sqlite` 或 `postgresql` | `sqlite` |
-| `MEMORY_DB_PATH` | SQLite 数据库文件路径 | `./memory.db` |
+| `MEMORY_DB_PATH` | SQLite 数据库文件路径 | `~/.emp/memory.db` |
 | `DATABASE_URL` | PostgreSQL 连接字符串（使用 postgresql 时必填） | - |
 
 ### SQLite 存储（默认）
 
-零配置，开箱即用：
+零配置，开箱即用。数据存储在 `~/.emp/memory.db`：
 
 ```json
 {
@@ -211,10 +211,7 @@ npm list -g memory-pulse-mcp-server
 }
 ```
 
-> **注意**：PostgreSQL 存储需要 `@prisma/client`，如有需要请手动安装：
-> ```bash
-> npm install @prisma/client
-> ```
+> **注意**：使用 PostgreSQL 时，MCP Server 会在首次启动时自动创建所需的数据表。
 
 ---
 
@@ -399,15 +396,48 @@ Memory Pulse 提供了精美的 Web Dashboard，用于可视化管理记忆。
 | **项目筛选** | 一键切换项目 |
 | **全文搜索** | 快速定位任何记忆 |
 
-### 截图预览
+---
 
-**首页概览**
-![首页概览](assets/images/dashboard-home.png)
+## 📖 部署指南
 
-**关系图谱**
-![关系图谱](assets/images/dashboard-relations.png)
+根据你的需求选择合适的部署场景：
 
-### 快速启动
+### 场景一：SQLite（本地个人使用）
+
+**适合**：个人开发者、轻量使用、快速上手。
+
+```
+┌─────────────────────────────────────────┐
+│  你的本地电脑                            │
+│                                         │
+│  Claude Code → MCP Server               │
+│                    ↓                    │
+│           ~/.emp/memory.db              │
+│                    ↑                    │
+│              Web Dashboard              │
+│                    ↓                    │
+│           http://localhost:3001         │
+└─────────────────────────────────────────┘
+```
+
+**第一步：配置 MCP Server**
+
+在 Claude MCP 配置文件（`~/.claude.json` 或 `.mcp.json`）中添加：
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"]
+    }
+  }
+}
+```
+
+**第二步：重启 Claude** 以激活 MCP Server。
+
+**第三步：在本地启动 Web Dashboard**
 
 ```bash
 # 克隆仓库
@@ -420,27 +450,171 @@ pnpm install
 # 构建所有包
 pnpm build
 
-# 启动 API 服务（默认: http://localhost:3000）
-pnpm --filter @emp/api dev
+# 启动 API 服务（自动读取 ~/.emp/runtime-config.json）
+pnpm --filter @emp/api dev &
 
-# 启动 Web Dashboard（默认: http://localhost:3001）
+# 启动 Web Dashboard
 pnpm --filter @emp/web dev
 ```
 
-### 配置说明
+**第四步：打开浏览器访问** http://localhost:3001
 
-Web Dashboard 连接 API 服务。在 `packages/web/.env` 中配置：
+> **工作原理**：MCP Server 启动时会将配置写入 `~/.emp/runtime-config.json`。API 服务读取这个文件，自动连接同一个 SQLite 数据库。
 
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000
+---
+
+### 场景二：PostgreSQL（团队/生产使用）
+
+**适合**：团队协作、多设备访问、生产环境部署。
+
+```
+┌──────────────────┐     ┌──────────────────┐
+│  用户 A（本地）   │     │  用户 B（本地）   │
+│  MCP Server      │     │  MCP Server      │
+└────────┬─────────┘     └────────┬─────────┘
+         │                        │
+         ↓                        ↓
+      ┌─────────────────────────────┐
+      │      PostgreSQL 数据库       │
+      │     （共享数据存储）          │
+      └──────────────┬──────────────┘
+                     ↑
+      ┌──────────────┴──────────────┐
+      │      Web Dashboard          │
+      │    （部署在服务器上）         │
+      │   http://your-server:3001   │
+      └─────────────────────────────┘
 ```
 
-生产部署使用 PostgreSQL：
+**第一步：搭建 PostgreSQL 数据库**
 
 ```bash
-# API 服务环境变量
-DATABASE_URL=postgresql://user:password@localhost:5432/memory_pulse
+# 创建数据库
+createdb memory_pulse
+
+# 或使用 Docker
+docker run -d --name memory-pulse-db \
+  -e POSTGRES_DB=memory_pulse \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=your_password \
+  -p 5432:5432 \
+  postgres:15
 ```
+
+**第二步：为每个用户配置 MCP Server**
+
+在 Claude MCP 配置文件（`~/.claude.json` 或 `.mcp.json`）中添加：
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"],
+      "env": {
+        "MEMORY_STORAGE": "postgresql",
+        "DATABASE_URL": "postgresql://postgres:your_password@your-db-server:5432/memory_pulse"
+      }
+    }
+  }
+}
+```
+
+**第三步：在服务器上部署 Web Dashboard**
+
+```bash
+# 在你的 Web 服务器上
+git clone https://github.com/jiahuidegit/memory-mcp-server.git
+cd memory-mcp-server
+
+# 安装依赖
+pnpm install
+
+# 构建所有包
+pnpm build
+
+# 设置环境变量
+export MEMORY_STORAGE=postgresql
+export DATABASE_URL="postgresql://postgres:your_password@your-db-server:5432/memory_pulse"
+
+# 启动 API 服务
+pnpm --filter @emp/api start &
+
+# 启动 Web Dashboard
+pnpm --filter @emp/web start
+```
+
+**第四步：访问 Web Dashboard** http://your-server:3001
+
+> **关键点**：MCP Server 和 Web Dashboard 必须使用**相同的 DATABASE_URL** 才能看到相同的数据。
+
+---
+
+### 配置优先级
+
+系统按以下顺序读取配置（先找到的优先）：
+
+1. **环境变量** - `MEMORY_STORAGE`、`DATABASE_URL`、`MEMORY_DB_PATH`
+2. **运行时配置文件** - `~/.emp/runtime-config.json`（由 MCP Server 写入）
+3. **默认值** - SQLite 存储在 `~/.emp/memory.db`
+
+---
+
+### Docker 部署（生产环境）
+
+生产环境可以使用 Docker：
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+WORKDIR /app
+RUN npm install -g pnpm
+COPY . .
+RUN pnpm install && pnpm build
+EXPOSE 3000 3001
+CMD ["sh", "-c", "pnpm --filter @emp/api start & pnpm --filter @emp/web start"]
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  memory-pulse:
+    build: .
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - MEMORY_STORAGE=postgresql
+      - DATABASE_URL=postgresql://postgres:password@db:5432/memory_pulse
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=memory_pulse
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+```bash
+docker-compose up -d
+```
+
+---
+
+### 截图预览
+
+**首页概览**
+![首页概览](assets/images/dashboard-home.png)
+
+**关系图谱**
+![关系图谱](assets/images/dashboard-relations.png)
 
 ---
 

@@ -126,7 +126,18 @@ function createStorage(): IStorage {
   }
 
   // SQLite 存储（默认）
-  const dbPath = process.env.MEMORY_DB_PATH || './memory.db';
+  // 默认路径：~/.emp/memory.db，确保 MCP 和 Web Dashboard 使用同一个文件
+  const defaultDbPath = join(homedir(), '.emp', 'memory.db');
+  const dbPath = process.env.MEMORY_DB_PATH || defaultDbPath;
+
+  // 确保目录存在
+  const dbDir = dirname(dbPath);
+  try {
+    mkdirSync(dbDir, { recursive: true });
+  } catch (error) {
+    // 目录已存在，忽略
+  }
+
   console.error(`Memory Pulse 使用 SQLite 存储: ${dbPath}`);
 
   // 写入运行时配置，供 API Server 读取

@@ -78,12 +78,13 @@ export function getStorage(): IStorage {
   }
 
   // SQLite 存储（默认）
-  // 路径优先级：环境变量 > 运行时配置 > 默认值
+  // 路径优先级：环境变量 > 运行时配置 > 默认值（~/.emp/memory.db）
+  const defaultDbPath = join(homedir(), '.emp', 'memory.db');
   const dbPath =
     process.env.EMP_DB_PATH ||
     process.env.CMS_DB_PATH ||
     runtimeConfig?.dbPath ||
-    join(PROJECT_ROOT, 'data', 'memory.db');
+    defaultDbPath;
 
   // 确保数据库目录存在
   const dbDir = dirname(dbPath);

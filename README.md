@@ -158,12 +158,12 @@ Restart the client after configuration.
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MEMORY_STORAGE` | Storage type: `sqlite` or `postgresql` | `sqlite` |
-| `MEMORY_DB_PATH` | SQLite database file path | `./memory.db` |
+| `MEMORY_DB_PATH` | SQLite database file path | `~/.emp/memory.db` |
 | `DATABASE_URL` | PostgreSQL connection string (required for postgresql) | - |
 
 ### SQLite Storage (Default)
 
-Zero configuration, works out of the box:
+Zero configuration, works out of the box. Data is stored in `~/.emp/memory.db`:
 
 ```json
 {
@@ -211,10 +211,7 @@ For production deployments or team usage:
 }
 ```
 
-> **Note**: PostgreSQL storage requires `@prisma/client`. Install it manually if needed:
-> ```bash
-> npm install @prisma/client
-> ```
+> **Note**: When using PostgreSQL, the MCP Server will automatically create the required tables on first run.
 
 ---
 
@@ -399,7 +396,48 @@ Memory Pulse includes a beautiful Web Dashboard for visualizing and managing you
 | **Project Filtering** | Switch between projects with one click |
 | **Full-text Search** | Quickly find any memory |
 
-### Quick Start
+---
+
+## 📖 Deployment Guide
+
+Choose the deployment scenario that fits your needs:
+
+### Scenario 1: SQLite (Local Personal Use)
+
+**Best for**: Individual developers, lightweight usage, getting started quickly.
+
+```
+┌─────────────────────────────────────────┐
+│  Your Local Machine                      │
+│                                         │
+│  Claude Code → MCP Server               │
+│                    ↓                    │
+│           ~/.emp/memory.db              │
+│                    ↑                    │
+│              Web Dashboard              │
+│                    ↓                    │
+│           http://localhost:3001         │
+└─────────────────────────────────────────┘
+```
+
+**Step 1: Configure MCP Server**
+
+Add to your Claude MCP config (`~/.claude.json` or `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"]
+    }
+  }
+}
+```
+
+**Step 2: Restart Claude** to activate the MCP Server.
+
+**Step 3: Start Web Dashboard locally**
 
 ```bash
 # Clone the repository
@@ -412,27 +450,163 @@ pnpm install
 # Build all packages
 pnpm build
 
-# Start the API server (default: http://localhost:3000)
-pnpm --filter @emp/api dev
+# Start API server (reads config from ~/.emp/runtime-config.json)
+pnpm --filter @emp/api dev &
 
-# Start the Web Dashboard (default: http://localhost:3001)
+# Start Web Dashboard
 pnpm --filter @emp/web dev
 ```
 
-### Configuration
+**Step 4: Open http://localhost:3001** in your browser.
 
-The Web Dashboard connects to the API server. Configure the connection in `packages/web/.env`:
+> **How it works**: When MCP Server starts, it writes its configuration to `~/.emp/runtime-config.json`. The API server reads this file and automatically connects to the same SQLite database.
 
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000
+---
+
+### Scenario 2: PostgreSQL (Team / Production Use)
+
+**Best for**: Team collaboration, multi-device access, production deployment.
+
+```
+┌──────────────────┐     ┌──────────────────┐
+│  User A (Local)  │     │  User B (Local)  │
+│  MCP Server      │     │  MCP Server      │
+└────────┬─────────┘     └────────┬─────────┘
+         │                        │
+         ↓                        ↓
+      ┌─────────────────────────────┐
+      │      PostgreSQL Database    │
+      │   (Shared data storage)     │
+      └──────────────┬──────────────┘
+                     ↑
+      ┌──────────────┴──────────────┐
+      │      Web Dashboard          │
+      │   (Deployed on server)      │
+      │   http://your-server:3001   │
+      └─────────────────────────────┘
 ```
 
-For production deployment with PostgreSQL:
+**Step 1: Set up PostgreSQL database**
 
 ```bash
-# API server environment
-DATABASE_URL=postgresql://user:password@localhost:5432/memory_pulse
+# Create database
+createdb memory_pulse
+
+# Or use Docker
+docker run -d --name memory-pulse-db \
+  -e POSTGRES_DB=memory_pulse \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=your_password \
+  -p 5432:5432 \
+  postgres:15
 ```
+
+**Step 2: Configure MCP Server for each user**
+
+Add to Claude MCP config (`~/.claude.json` or `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "memory-pulse": {
+      "command": "npx",
+      "args": ["-y", "memory-pulse-mcp-server"],
+      "env": {
+        "MEMORY_STORAGE": "postgresql",
+        "DATABASE_URL": "postgresql://postgres:your_password@your-db-server:5432/memory_pulse"
+      }
+    }
+  }
+}
+```
+
+**Step 3: Deploy Web Dashboard on your server**
+
+```bash
+# On your web server
+git clone https://github.com/jiahuidegit/memory-mcp-server.git
+cd memory-mcp-server
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Set environment variables
+export MEMORY_STORAGE=postgresql
+export DATABASE_URL="postgresql://postgres:your_password@your-db-server:5432/memory_pulse"
+
+# Start API server
+pnpm --filter @emp/api start &
+
+# Start Web Dashboard
+pnpm --filter @emp/web start
+```
+
+**Step 4: Access Web Dashboard** at `http://your-server:3001`
+
+> **Key point**: Both MCP Server and Web Dashboard must use the **same DATABASE_URL** to see the same data.
+
+---
+
+### Configuration Priority
+
+The system reads configuration in this order (first found wins):
+
+1. **Environment variables** - `MEMORY_STORAGE`, `DATABASE_URL`, `MEMORY_DB_PATH`
+2. **Runtime config file** - `~/.emp/runtime-config.json` (written by MCP Server)
+3. **Default values** - SQLite at `~/.emp/memory.db`
+
+---
+
+### Docker Deployment (Production)
+
+For production environments, you can use Docker:
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+WORKDIR /app
+RUN npm install -g pnpm
+COPY . .
+RUN pnpm install && pnpm build
+EXPOSE 3000 3001
+CMD ["sh", "-c", "pnpm --filter @emp/api start & pnpm --filter @emp/web start"]
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  memory-pulse:
+    build: .
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - MEMORY_STORAGE=postgresql
+      - DATABASE_URL=postgresql://postgres:password@db:5432/memory_pulse
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=memory_pulse
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+```bash
+docker-compose up -d
+```
+
+---
 
 ### Screenshots
 

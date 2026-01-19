@@ -6,7 +6,8 @@
         "/Users/yangjiahui/work/elb-workbase/context-memory-system/packages/mcp-server/dist/index.js"
       ],
       "env": {
-        "EMP_DB_PATH": "/Users/yangjiahui/work/elb-workbase/context-memory-system/data/memory.db"
+        "MEMORY_STORAGE": "postgresql",
+        "DATABASE_URL": "postgresql://postgres:123456@10.10.1.12:5432/context_memory_system"
       }
     }
   }
