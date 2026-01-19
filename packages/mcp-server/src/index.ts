@@ -23,6 +23,8 @@ import { SearchStrategy } from '@emp/core';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { mkdirSync, writeFileSync } from 'fs';
+import { homedir } from 'os';
 
 /**
  * Memory Pulse (记忆脉搏) MCP Server
@@ -58,6 +60,39 @@ const storageType = process.env.MEMORY_STORAGE || 'sqlite';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// 运行时配置文件路径（供 API Server 读取）
+const RUNTIME_CONFIG_PATH = join(homedir(), '.emp', 'runtime-config.json');
+
+/**
+ * 写入运行时配置，供 API Server 读取
+ * 这样用户只需在 MCP 配置中设置数据库参数，Web Dashboard 自动跟随
+ */
+function writeRuntimeConfig(config: {
+  storageType: string;
+  databaseUrl?: string;
+  dbPath?: string;
+}) {
+  try {
+    const configDir = dirname(RUNTIME_CONFIG_PATH);
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      RUNTIME_CONFIG_PATH,
+      JSON.stringify(
+        {
+          ...config,
+          updatedAt: new Date().toISOString(),
+          pid: process.pid,
+        },
+        null,
+        2
+      )
+    );
+    console.error(`📝 运行时配置已写入: ${RUNTIME_CONFIG_PATH}`);
+  } catch (error) {
+    console.error('⚠️ 写入运行时配置失败:', (error as Error).message);
+  }
+}
+
 // 初始化存储
 function createStorage(): IStorage {
   if (storageType === 'postgresql') {
@@ -81,12 +116,25 @@ function createStorage(): IStorage {
       console.error('⚠️ 数据库表结构同步失败（可能表已存在）:', (error as Error).message);
     }
 
+    // 写入运行时配置，供 API Server 读取
+    writeRuntimeConfig({
+      storageType: 'postgresql',
+      databaseUrl,
+    });
+
     return new PostgreSQLStorage(databaseUrl);
   }
 
   // SQLite 存储（默认）
   const dbPath = process.env.MEMORY_DB_PATH || './memory.db';
   console.error(`Memory Pulse 使用 SQLite 存储: ${dbPath}`);
+
+  // 写入运行时配置，供 API Server 读取
+  writeRuntimeConfig({
+    storageType: 'sqlite',
+    dbPath,
+  });
+
   return new SQLiteStorage(dbPath);
 }
 
