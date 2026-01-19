@@ -155,17 +155,25 @@ const storage = createStorage();
 const tools: Tool[] = [
   {
     name: 'mpulse_store',
-    description: '智能存储记忆，AI 自动分类和结构化',
+    description: `智能存储记忆。重要：content 和 rawContext 必须存储不同内容！
+- content: 简洁摘要（1-2句话），用于列表展示
+- rawContext: 完整原始数据，包括所有细节（命令输出、配置值、文件内容等）`,
     inputSchema: {
       type: 'object',
       properties: {
         content: {
           type: 'string',
-          description: 'AI 总结的内容',
+          description: '简洁摘要（1-2句话），仅用于快速浏览。例如："配置了 PostgreSQL 数据库连接"',
         },
         rawContext: {
           type: 'object',
-          description: '完整原始数据（不压缩）',
+          description: `完整原始数据对象，必须包含所有细节！包括但不限于：
+- 完整的命令输出和错误信息
+- 具体的配置值、端口、路径
+- 文件内容和代码片段
+- 磁盘空间、内存使用等运行时数据
+- 对话中提到的所有具体数值和参数
+【重要】此字段是原始数据存档，不要压缩或省略任何信息！`,
         },
         projectId: {
           type: 'string',

@@ -756,6 +756,9 @@ export class SQLiteStorage implements IStorage {
    * 将数据库行转换为Memory对象
    */
   private rowToMemory(row: any): Memory {
+    // 解析 context 字段（包含完整原始数据）
+    const rawContext = row.context ? JSON.parse(row.context) : undefined;
+
     return {
       meta: {
         id: row.id,
@@ -769,6 +772,8 @@ export class SQLiteStorage implements IStorage {
       content: {
         summary: row.summary,
         data: row.data ? JSON.parse(row.data) : {},
+        // 返回完整原始上下文，保留所有细节
+        rawContext,
       },
       relations: {
         replaces: row.replaces ? JSON.parse(row.replaces) : undefined,

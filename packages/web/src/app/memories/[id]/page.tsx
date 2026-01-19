@@ -394,6 +394,22 @@ export default function MemoryDetailPage() {
               </pre>
             </div>
 
+            {/* 原始上下文 rawContext */}
+            {content.rawContext && Object.keys(content.rawContext).length > 0 && (
+              <div className="glassCard p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/20">
+                    <FileJson className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <h2 className="text-lg font-heading font-semibold">原始上下文</h2>
+                  <span className="text-xs text-muted-foreground">(完整原始数据)</span>
+                </div>
+                <pre className="max-h-[480px] overflow-auto p-4 rounded-xl text-sm font-mono scrollbarThin" style={{ background: 'rgba(0,0,0,0.3)' }}>
+{JSON.stringify(content.rawContext, null, 2)}
+                </pre>
+              </div>
+            )}
+
             {/* Artifacts */}
             {content.artifacts && Object.keys(content.artifacts).length > 0 && (
               <div className="glassCard p-6">

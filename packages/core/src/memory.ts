@@ -88,6 +88,8 @@ export interface MemoryContent {
   data: Record<string, unknown>;
   /** 原始文件/代码片段（可选） */
   artifacts?: Record<string, string>;
+  /** 完整原始上下文（存储时的 rawContext，用于保留完整信息） */
+  rawContext?: Record<string, unknown>;
 }
 
 /**

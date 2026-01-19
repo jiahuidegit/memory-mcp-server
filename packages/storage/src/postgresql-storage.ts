@@ -629,6 +629,8 @@ export class PostgreSQLStorage implements IStorage {
       content: {
         summary: row.summary,
         data: (row.data || {}) as Record<string, unknown>,
+        // 返回完整原始上下文，保留所有细节
+        rawContext: row.context as Record<string, unknown> | undefined,
       },
       relations: {
         replaces: row.replaces || undefined,
