@@ -2,6 +2,7 @@
   "name": "elb-memory-pulse",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "记忆脉搏 - 精准、结构化的 AI 上下文记忆系统",
   "keywords": [
     "ai",
