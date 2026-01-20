@@ -52,6 +52,30 @@ export type {
   IEmbeddingService,
 } from './embedding.js';
 
+// 关键词提取
+export {
+  extractKeywords,
+  jaccardSimilarity,
+  getKeywordIntersection,
+} from './keywords.js';
+
+// 自动关联
+export {
+  calculateSimilarity,
+  findRelatedMemories,
+  generateAutoRelations,
+  inferProjectGroup,
+  isSameProjectGroup,
+  getProjectGroupMembers,
+} from './auto-relation.js';
+export type {
+  SimilarityResult,
+  RelationCandidate,
+  AutoRelationConfig,
+  MemoryRelationData,
+  ProjectGroupConfig,
+} from './auto-relation.js';
+
 // 记忆类型
 export type {
   Memory,
