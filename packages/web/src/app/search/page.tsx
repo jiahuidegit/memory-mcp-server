@@ -14,7 +14,15 @@ import {
   X,
   Sparkles,
   SlidersHorizontal,
+  Layers,
+  Lightbulb,
+  Brain,
+  Settings,
+  Code,
+  AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
+import { Select } from '@/components/Select';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -31,13 +39,13 @@ const strategyConfig: Record<
 };
 
 const memoryTypes = [
-  { value: '', label: '全部类型' },
-  { value: 'decision', label: '决策' },
-  { value: 'solution', label: '解决方案' },
-  { value: 'config', label: '配置' },
-  { value: 'code', label: '代码' },
-  { value: 'error', label: '错误' },
-  { value: 'session', label: '会话' },
+  { value: '', label: '全部类型', icon: <Layers className="w-4 h-4 text-muted-foreground" /> },
+  { value: 'decision', label: '决策', icon: <Lightbulb className="w-4 h-4 text-emerald-400" /> },
+  { value: 'solution', label: '解决方案', icon: <Brain className="w-4 h-4 text-orange-400" /> },
+  { value: 'config', label: '配置', icon: <Settings className="w-4 h-4 text-cyan-400" /> },
+  { value: 'code', label: '代码', icon: <Code className="w-4 h-4 text-blue-400" /> },
+  { value: 'error', label: '错误', icon: <AlertCircle className="w-4 h-4 text-red-400" /> },
+  { value: 'session', label: '会话', icon: <MessageSquare className="w-4 h-4 text-gray-400" /> },
 ];
 
 export default function SearchPage() {
@@ -233,19 +241,15 @@ export default function SearchPage() {
                   <label className="block text-sm text-muted-foreground">
                     记忆类型
                   </label>
-                  <select
+                  <Select
                     value={filters.type}
-                    onChange={(e) =>
-                      setFilters({ ...filters, type: e.target.value })
+                    onChange={(value) =>
+                      setFilters({ ...filters, type: value })
                     }
-                    className="inputField text-sm cursor-pointer"
-                  >
-                    {memoryTypes.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={memoryTypes}
+                    placeholder="全部类型"
+                    size="sm"
+                  />
                 </div>
 
                 {/* 标签 */}

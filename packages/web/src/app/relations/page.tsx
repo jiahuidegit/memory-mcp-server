@@ -22,6 +22,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { getMemoryTypeName } from '@/lib/utils';
+import { Select } from '@/components/Select';
 import type { LucideProps } from 'lucide-react';
 
 // 强制动态渲染
@@ -186,15 +187,17 @@ function RelationsContent() {
 
               <div className="flex items-center gap-2 mt-3">
                 <label className="text-xs text-muted-foreground">深度:</label>
-                <select
-                  value={depth}
-                  onChange={(e) => setDepth(Number(e.target.value))}
-                  className="flex-1 px-2 py-1.5 bg-background/50 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
-                >
-                  <option value={1}>1 层</option>
-                  <option value={2}>2 层</option>
-                  <option value={3}>3 层</option>
-                </select>
+                <Select
+                  value={String(depth)}
+                  onChange={(value) => setDepth(Number(value))}
+                  options={[
+                    { value: '1', label: '1 层' },
+                    { value: '2', label: '2 层' },
+                    { value: '3', label: '3 层' },
+                  ]}
+                  size="sm"
+                  className="flex-1"
+                />
                 <button
                   onClick={loadRelations}
                   disabled={!memoryId.trim() || loading}

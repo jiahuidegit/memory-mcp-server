@@ -1,6 +1,7 @@
 'use client';
 
-import { Filter } from 'lucide-react';
+import { Filter, Lightbulb, Brain, Settings, Code, AlertCircle, MessageSquare, Layers } from 'lucide-react';
+import { Select } from './Select';
 
 interface FilterPanelProps {
   filters: {
@@ -11,13 +12,13 @@ interface FilterPanelProps {
 }
 
 const memoryTypes = [
-  { value: '', label: '全部类型' },
-  { value: 'decision', label: '架构决策' },
-  { value: 'solution', label: '解决方案' },
-  { value: 'config', label: '配置' },
-  { value: 'code', label: '代码' },
-  { value: 'error', label: '错误' },
-  { value: 'session', label: '会话' },
+  { value: '', label: '全部类型', icon: <Layers className="w-4 h-4 text-muted-foreground" /> },
+  { value: 'decision', label: '架构决策', icon: <Lightbulb className="w-4 h-4 text-emerald-400" /> },
+  { value: 'solution', label: '解决方案', icon: <Brain className="w-4 h-4 text-orange-400" /> },
+  { value: 'config', label: '配置', icon: <Settings className="w-4 h-4 text-cyan-400" /> },
+  { value: 'code', label: '代码', icon: <Code className="w-4 h-4 text-blue-400" /> },
+  { value: 'error', label: '错误', icon: <AlertCircle className="w-4 h-4 text-red-400" /> },
+  { value: 'session', label: '会话', icon: <MessageSquare className="w-4 h-4 text-gray-400" /> },
 ];
 
 export function FilterPanel({ filters, onChange }: FilterPanelProps) {
@@ -35,17 +36,13 @@ export function FilterPanel({ filters, onChange }: FilterPanelProps) {
       />
 
       {/* 类型筛选 */}
-      <select
+      <Select
         value={filters.type}
-        onChange={(e) => onChange({ ...filters, type: e.target.value })}
-        className="px-3 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
-      >
-        {memoryTypes.map((type) => (
-          <option key={type.value} value={type.value}>
-            {type.label}
-          </option>
-        ))}
-      </select>
+        onChange={(value) => onChange({ ...filters, type: value })}
+        options={memoryTypes}
+        placeholder="全部类型"
+        className="w-36"
+      />
     </div>
   );
 }
