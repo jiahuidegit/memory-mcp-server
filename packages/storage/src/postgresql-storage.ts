@@ -688,6 +688,68 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   /**
+   * 获取统计信息
+   */
+  async getStats(projectId?: string): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    byProject: Record<string, number>;
+    recentCount: number;
+  }> {
+    // 构建基础查询条件
+    const baseWhere: Prisma.MemoryWhereInput = projectId ? { projectId } : {};
+
+    // 并行执行所有统计查询
+    const [totalCount, typeStats, projectStats, recentCount] = await Promise.all([
+      // 总数
+      this.prisma.memory.count({ where: baseWhere }),
+
+      // 按类型统计
+      this.prisma.memory.groupBy({
+        by: ['type'],
+        where: baseWhere,
+        _count: { type: true },
+      }),
+
+      // 按项目统计
+      this.prisma.memory.groupBy({
+        by: ['projectId'],
+        where: baseWhere,
+        _count: { projectId: true },
+      }),
+
+      // 最近 7 天统计
+      this.prisma.memory.count({
+        where: {
+          ...baseWhere,
+          timestamp: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          },
+        },
+      }),
+    ]);
+
+    // 转换按类型统计结果
+    const byType: Record<string, number> = {};
+    typeStats.forEach((row) => {
+      byType[row.type] = row._count.type;
+    });
+
+    // 转换按项目统计结果
+    const byProject: Record<string, number> = {};
+    projectStats.forEach((row) => {
+      byProject[row.projectId] = row._count.projectId;
+    });
+
+    return {
+      total: totalCount,
+      byType,
+      byProject,
+      recentCount,
+    };
+  }
+
+  /**
    * 关闭数据库连接
    */
   async close(): Promise<void> {

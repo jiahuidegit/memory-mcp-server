@@ -3,6 +3,10 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# 构建时环境变量（Next.js NEXT_PUBLIC_ 前缀变量必须在构建时设置）
+ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 # 配置 npm 使用淘宝镜像
 RUN npm config set registry https://registry.npmmirror.com
 
@@ -23,9 +27,9 @@ COPY packages/core ./packages/core
 COPY packages/web ./packages/web
 COPY tsconfig.json ./
 
-# 构建项目
-RUN pnpm --filter @cms/core build
-RUN pnpm --filter @cms/web build
+# 构建项目（NEXT_PUBLIC_API_URL 会在此时注入到前端代码中）
+RUN pnpm --filter @emp/core build
+RUN pnpm --filter @emp/web build
 
 # Stage 2: Runtime
 FROM node:18-alpine
@@ -46,4 +50,4 @@ COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 EXPOSE 3001
 
 # 启动命令
-CMD ["pnpm", "--filter", "@cms/web", "start"]
+CMD ["pnpm", "--filter", "@emp/web", "start"]

@@ -40,6 +40,20 @@ app.route('/api/relations', relationsRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/stats', statsRoutes);
 
+// 获取所有项目列表（兼容旧接口）
+app.get('/api/projects', async (c) => {
+  const { getStorage } = await import('./utils/storage.js');
+  const storage = getStorage();
+
+  if (!storage.getStats) {
+    return c.json([], 200);
+  }
+
+  const stats = await storage.getStats();
+  const projects = Object.keys(stats.byProject);
+  return c.json(projects);
+});
+
 // 404处理
 app.notFound((c) => {
   return c.json({ error: 'Not Found', path: c.req.path }, 404);

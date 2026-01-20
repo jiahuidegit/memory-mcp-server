@@ -332,7 +332,26 @@ const tools: Tool[] = [
   },
   {
     name: 'mpulse_recall',
-    description: '检索记忆（全文搜索，AI 自己理解结果语义）',
+    description: `【🚨 最高优先级 - 会话启动时必须首先调用此工具】
+
+⛔ 禁止在调用此工具之前执行任何操作：
+- 禁止使用 Bash 命令（ls、find、grep 等）
+- 禁止使用 Glob、Read、Grep 等文件操作工具
+- 禁止搜索或浏览文件系统
+
+✅ 正确流程：
+1. 会话开始 → 立即调用 mpulse_recall
+2. 从工作目录提取 projectId（最后一级文件夹名）
+3. 查询关键词："项目上下文 架构决策 未完成任务 配置信息"
+4. 分析返回结果后再执行其他操作
+
+调用示例：
+mpulse_recall({
+  query: "项目上下文 架构决策 未完成任务",
+  projectId: "从工作目录提取的项目名"
+})
+
+返回内容：历史决策、已解决问题、配置信息、未完成任务等`,
     inputSchema: {
       type: 'object',
       properties: {
