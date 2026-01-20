@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Brain, Clock, Network, Search, Menu, X, Sparkles } from 'lucide-react';
+import { Brain, Clock, Network, Search, Menu, X, Sparkles, FolderTree } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
 import { ProjectSelector } from './ProjectSelector';
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { name: '记忆管理', href: '/memories', icon: Brain },
   { name: '时间线', href: '/timeline', icon: Clock },
   { name: '关系链', href: '/relations', icon: Network },
+  { name: '项目组', href: '/project-groups', icon: FolderTree },
   { name: '搜索', href: '/search', icon: Search },
 ];
 

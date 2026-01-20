@@ -12,6 +12,7 @@ import { timelineRoutes } from './routes/timeline.js';
 import { relationsRoutes } from './routes/relations.js';
 import { searchRoutes } from './routes/search.js';
 import { statsRoutes } from './routes/stats.js';
+import { projectGroupRoutes } from './routes/project-groups.js';
 import { errorHandler } from './middleware/error.js';
 
 const app = new Hono();
@@ -39,6 +40,7 @@ app.route('/api/timeline', timelineRoutes);
 app.route('/api/relations', relationsRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/stats', statsRoutes);
+app.route('/api/project-groups', projectGroupRoutes);
 
 // 获取所有项目列表（兼容旧接口）
 app.get('/api/projects', async (c) => {
