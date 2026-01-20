@@ -484,9 +484,19 @@ export class SQLiteStorage implements IStorage {
     }
 
     if (filters.query) {
-      // 使用LIKE实现简单的全文搜索
-      sql += ' AND (summary LIKE ? OR fullText LIKE ?)';
-      params.push(`%${filters.query}%`, `%${filters.query}%`);
+      // 将查询字符串按空格拆分为多个关键词，任一匹配即可
+      const keywords = filters.query.split(/\s+/).filter(k => k.length > 0);
+      if (keywords.length === 1) {
+        sql += ' AND (summary LIKE ? OR fullText LIKE ?)';
+        params.push(`%${keywords[0]}%`, `%${keywords[0]}%`);
+      } else {
+        // 多个关键词：OR 逻辑
+        const conditions = keywords.map(() => '(summary LIKE ? OR fullText LIKE ?)').join(' OR ');
+        sql += ` AND (${conditions})`;
+        keywords.forEach(keyword => {
+          params.push(`%${keyword}%`, `%${keyword}%`);
+        });
+      }
     }
 
     sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';

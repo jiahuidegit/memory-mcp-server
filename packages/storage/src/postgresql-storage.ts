@@ -367,10 +367,19 @@ export class PostgreSQLStorage implements IStorage {
     }
 
     if (filters.query) {
-      where.OR = [
-        { summary: { contains: filters.query, mode: 'insensitive' } },
-        { fullText: { contains: filters.query, mode: 'insensitive' } },
-      ];
+      // 将查询字符串按空格拆分为多个关键词，任一匹配即可
+      const keywords = filters.query.split(/\s+/).filter(k => k.length > 0);
+      if (keywords.length === 1) {
+        where.OR = [
+          { summary: { contains: keywords[0], mode: 'insensitive' } },
+          { fullText: { contains: keywords[0], mode: 'insensitive' } },
+        ];
+      } else {
+        where.OR = keywords.flatMap(keyword => [
+          { summary: { contains: keyword, mode: 'insensitive' } },
+          { fullText: { contains: keyword, mode: 'insensitive' } },
+        ]);
+      }
     }
 
     // 并行执行查询和计数
@@ -423,10 +432,19 @@ export class PostgreSQLStorage implements IStorage {
     }
 
     if (filters.query) {
-      where.OR = [
-        { summary: { contains: filters.query, mode: 'insensitive' } },
-        { fullText: { contains: filters.query, mode: 'insensitive' } },
-      ];
+      // 将查询字符串按空格拆分为多个关键词，任一匹配即可
+      const keywords = filters.query.split(/\s+/).filter(k => k.length > 0);
+      if (keywords.length === 1) {
+        where.OR = [
+          { summary: { contains: keywords[0], mode: 'insensitive' } },
+          { fullText: { contains: keywords[0], mode: 'insensitive' } },
+        ];
+      } else {
+        where.OR = keywords.flatMap(keyword => [
+          { summary: { contains: keyword, mode: 'insensitive' } },
+          { fullText: { contains: keyword, mode: 'insensitive' } },
+        ]);
+      }
     }
 
     // 并行执行查询和计数
