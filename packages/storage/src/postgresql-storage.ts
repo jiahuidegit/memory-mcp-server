@@ -71,7 +71,8 @@ export class PostgreSQLStorage implements IStorage {
         type: memoryType,
         tags: params.tags || [],
         summary: params.content,
-        data: params.rawContext as any,
+        // data 存储空对象（简洁数据），rawContext 存到 context 字段（完整原始数据）
+        data: {},
         replaces: params.relations?.replaces || [],
         relatedTo: params.relations?.relatedTo || [],
         impacts: params.relations?.impacts || [],

@@ -425,18 +425,20 @@ export default function MemoryDetailPage() {
               )}
             </div>
 
-            {/* 内容数据预览 */}
-            <div className="glassCard p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-lg bg-cyan-500/20 border border-cyan-500/20">
-                  <FileCode className="w-4 h-4 text-cyan-400" />
+            {/* 内容数据预览 - 只在 data 非空且与 rawContext 不同时显示 */}
+            {content.data && Object.keys(content.data).length > 0 && JSON.stringify(content.data) !== JSON.stringify(content.rawContext) && (
+              <div className="glassCard p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-lg bg-cyan-500/20 border border-cyan-500/20">
+                    <FileCode className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <h2 className="text-lg font-heading font-semibold">内容数据</h2>
                 </div>
-                <h2 className="text-lg font-heading font-semibold">内容数据</h2>
-              </div>
-              <pre className="max-h-[480px] overflow-auto p-4 rounded-xl text-sm font-mono scrollbarThin" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                <pre className="max-h-[480px] overflow-auto p-4 rounded-xl text-sm font-mono scrollbarThin" style={{ background: 'rgba(0,0,0,0.3)' }}>
 {JSON.stringify(content.data ?? {}, null, 2)}
-              </pre>
-            </div>
+                </pre>
+              </div>
+            )}
 
             {/* 原始上下文 rawContext */}
             {content.rawContext && Object.keys(content.rawContext).length > 0 && (
