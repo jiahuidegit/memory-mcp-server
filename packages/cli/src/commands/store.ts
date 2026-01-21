@@ -40,6 +40,7 @@ export function storeCommand(program: Command) {
         // 存储
         const result = await storage.store({
           content: options.content,
+          data: rawContext, // CLI 模式下 data 与 rawContext 相同
           rawContext,
           projectId,
           type: options.type as MemoryType,
