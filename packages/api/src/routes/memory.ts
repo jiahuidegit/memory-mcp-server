@@ -43,7 +43,7 @@ app.get('/', async (c) => {
 app.post('/', async (c) => {
   const body = await c.req.json();
 
-  const { content, rawContext, projectId, type, tags, sessionId } = body;
+  const { content, data, rawContext, projectId, type, tags, sessionId } = body;
 
   if (!content || !projectId) {
     return c.json({ error: '缺少必需参数: content, projectId' }, 400);
@@ -53,6 +53,7 @@ app.post('/', async (c) => {
 
   const result = await storage.store({
     content,
+    data: data || {},
     rawContext: rawContext || {},
     projectId,
     type: (type as MemoryType) || MemoryType.CODE,
