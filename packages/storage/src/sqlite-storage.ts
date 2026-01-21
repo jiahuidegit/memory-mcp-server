@@ -308,7 +308,19 @@ export class SQLiteStorage implements IStorage {
   }
 
   /**
-   * 检索记忆
+   * 检索记忆（新版多维度搜索 + 关系链融合）
+   *
+   * 搜索维度：
+   * 1. projectId - 项目ID匹配（支持单个或多个）
+   * 2. summary - 摘要文本搜索
+   * 3. fullText - 全文搜索
+   * 4. tags - 标签匹配
+   * 5. keywords - 关键词匹配
+   *
+   * 核心功能：
+   * - 多维度搜索
+   * - 智能降级（无结果时自动放宽条件）
+   * - 关系链融合（自动扩展关联记忆）
    */
   async recall(filters: SearchFilters): Promise<SearchResult> {
     const startTime = Date.now();
@@ -318,100 +330,102 @@ export class SQLiteStorage implements IStorage {
       const cacheKey = LRUCache.generateKey(filters);
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        return cached; // 缓存命中，直接返回
+        return cached;
       }
     }
 
     const strategy = filters.strategy || SearchStrategy.AUTO;
     const limit = filters.limit || 10;
     const offset = filters.offset || 0;
+    const expandRelations = filters.expandRelations !== false; // 默认开启
+    const relationDepth = filters.relationDepth || 1;
 
     let actualStrategy: SearchStrategy;
     let results: Memory[];
+    let total: number;
     let dbStartTime: number;
     let dbEndTime: number;
-    let parseStartTime: number;
 
-    // 策略选择
     const strategyStartTime = Date.now();
 
-    // 如果提供了 queryVector，直接使用语义搜索
+    // 语义搜索优先
     if (filters.queryVector && strategy !== SearchStrategy.EXACT && strategy !== SearchStrategy.FULLTEXT) {
       dbStartTime = Date.now();
       results = this.semanticSearch(filters, limit, offset);
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.SEMANTIC;
+      total = results.length;
     }
-    // L1: 精确匹配（优先）
-    else if (strategy === SearchStrategy.EXACT || strategy === SearchStrategy.AUTO) {
+    // 使用新的多维度搜索
+    else {
       dbStartTime = Date.now();
-      results = this.exactSearch(filters, limit, offset);
-      dbEndTime = Date.now();
-      actualStrategy = SearchStrategy.EXACT;
-
-      // AUTO 模式：如果L1找不到结果，降级到L2全文搜索
-      if (results.length === 0 && strategy === SearchStrategy.AUTO && filters.query) {
-        dbStartTime = Date.now();
-        results = this.fulltextSearch(filters, limit, offset);
-        dbEndTime = Date.now();
-        actualStrategy = SearchStrategy.FULLTEXT;
-
-        // AUTO 模式：如果L2也找不到，且有 queryVector，降级到L3语义搜索
-        if (results.length === 0 && filters.queryVector) {
-          dbStartTime = Date.now();
-          results = this.semanticSearch(filters, limit, offset);
-          dbEndTime = Date.now();
-          actualStrategy = SearchStrategy.SEMANTIC;
-        }
-      }
-    }
-    // L2: 全文搜索
-    else if (strategy === SearchStrategy.FULLTEXT) {
-      dbStartTime = Date.now();
-      results = this.fulltextSearch(filters, limit, offset);
+      const searchResult = this.multiDimensionSearch(filters, limit, offset);
+      results = searchResult.memories;
+      total = searchResult.total;
       dbEndTime = Date.now();
       actualStrategy = SearchStrategy.FULLTEXT;
-    }
-    // L3: 语义检索
-    else if (strategy === SearchStrategy.SEMANTIC) {
-      if (!filters.queryVector) {
-        // 无向量时降级到全文搜索
-        dbStartTime = Date.now();
-        results = this.fulltextSearch(filters, limit, offset);
-        dbEndTime = Date.now();
-        actualStrategy = SearchStrategy.FULLTEXT;
-      } else {
+
+      // 智能降级：如果多维度搜索无结果
+      if (results.length === 0 && filters.query) {
+        // 降级1：只按 projectId 返回最近记忆
+        if (filters.projectId || (filters.projectIds && filters.projectIds.length > 0)) {
+          dbStartTime = Date.now();
+          const degradedResult = this.multiDimensionSearch(
+            { ...filters, query: undefined },
+            limit,
+            offset
+          );
+          results = degradedResult.memories;
+          total = degradedResult.total;
+          dbEndTime = Date.now();
+        }
+
+        // 降级2：全局搜索（移除 projectId 限制）
+        if (results.length === 0) {
+          dbStartTime = Date.now();
+          const globalResult = this.multiDimensionSearch(
+            { ...filters, projectId: undefined, projectIds: undefined },
+            limit,
+            offset
+          );
+          results = globalResult.memories;
+          total = globalResult.total;
+          dbEndTime = Date.now();
+        }
+      }
+
+      // AUTO 模式：如果仍无结果且有向量，降级到语义搜索
+      if (results.length === 0 && strategy === SearchStrategy.AUTO && filters.queryVector) {
         dbStartTime = Date.now();
         results = this.semanticSearch(filters, limit, offset);
         dbEndTime = Date.now();
         actualStrategy = SearchStrategy.SEMANTIC;
+        total = results.length;
       }
     }
-    // 默认：全文搜索
-    else {
-      dbStartTime = Date.now();
-      results = this.fulltextSearch(filters, limit, offset);
-      dbEndTime = Date.now();
-      actualStrategy = SearchStrategy.FULLTEXT;
+
+    // 关系链融合：扩展关联记忆
+    let relatedMemories: Memory[] | undefined;
+    if (expandRelations && results.length > 0) {
+      relatedMemories = this.expandRelatedMemories(results, relationDepth);
     }
 
     const strategyTime = Date.now() - strategyStartTime;
     const took = Date.now() - startTime;
-
-    // 计算解析时间（总时间 - 数据库时间）
     const dbTime = dbEndTime - dbStartTime;
     const parseTime = took - dbTime - strategyTime;
 
     const result: SearchResult = {
       memories: results,
-      total: results.length,
+      relatedMemories,
+      total,
       strategy: actualStrategy,
       took,
       metrics: {
         dbTime,
-        parseTime: Math.max(0, parseTime), // 确保非负
+        parseTime: Math.max(0, parseTime),
         strategyTime,
-        cacheHit: false, // 数据库查询，标记为未命中
+        cacheHit: false,
       },
     };
 
@@ -422,6 +436,170 @@ export class SQLiteStorage implements IStorage {
     }
 
     return result;
+  }
+
+  /**
+   * 扩展关联记忆
+   *
+   * 基于搜索结果的关系链（relatedTo、replaces、impacts、derivedFrom）
+   * 自动获取关联的记忆，去重后返回
+   */
+  private expandRelatedMemories(
+    memories: Memory[],
+    depth: number = 1
+  ): Memory[] {
+    if (depth <= 0 || memories.length === 0) {
+      return [];
+    }
+
+    // 收集所有关联 ID（去重）
+    const relatedIds = new Set<string>();
+    const processedIds = new Set<string>(memories.map(m => m.meta.id));
+
+    for (const memory of memories) {
+      const { relations } = memory;
+      if (!relations) continue;
+
+      // 收集各种关系类型的 ID
+      relations.relatedTo?.forEach(id => relatedIds.add(id));
+      relations.replaces?.forEach(id => relatedIds.add(id));
+      relations.impacts?.forEach(id => relatedIds.add(id));
+      if (relations.derivedFrom) relatedIds.add(relations.derivedFrom);
+    }
+
+    // 过滤掉已经在主结果中的记忆
+    const idsToFetch = Array.from(relatedIds).filter(id => !processedIds.has(id));
+
+    if (idsToFetch.length === 0) {
+      return [];
+    }
+
+    // 批量获取关联记忆
+    const placeholders = idsToFetch.map(() => '?').join(', ');
+    const sql = `SELECT * FROM memories WHERE id IN (${placeholders}) ORDER BY timestamp DESC`;
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...idsToFetch) as any[];
+
+    const relatedMemories = rows.map(this.rowToMemory);
+
+    // 递归扩展（如果需要更深层次）
+    if (depth > 1 && relatedMemories.length > 0) {
+      const deeperRelated = this.expandRelatedMemories(relatedMemories, depth - 1);
+      // 合并并去重
+      const allRelated = [...relatedMemories];
+      const existingIds = new Set(allRelated.map(m => m.meta.id));
+      for (const m of deeperRelated) {
+        if (!existingIds.has(m.meta.id) && !processedIds.has(m.meta.id)) {
+          allRelated.push(m);
+          existingIds.add(m.meta.id);
+        }
+      }
+      return allRelated;
+    }
+
+    return relatedMemories;
+  }
+
+  /**
+   * 多维度搜索实现
+   *
+   * 搜索逻辑：
+   * - projectId/projectIds: 项目过滤
+   * - type: 类型过滤
+   * - sessionId: 会话过滤
+   * - tags: 标签过滤
+   * - query: 多维度关键词搜索（projectId/summary/fullText/tags/keywords）
+   */
+  private multiDimensionSearch(
+    filters: SearchFilters,
+    limit: number,
+    offset: number
+  ): { memories: Memory[]; total: number } {
+    let sql = 'SELECT * FROM memories WHERE 1=1';
+    let countSql = 'SELECT COUNT(*) as total FROM memories WHERE 1=1';
+    const params: any[] = [];
+    const countParams: any[] = [];
+
+    // 1. 项目过滤（支持单个或多个）
+    if (filters.projectIds && filters.projectIds.length > 0) {
+      const placeholders = filters.projectIds.map(() => '?').join(', ');
+      sql += ` AND projectId IN (${placeholders})`;
+      countSql += ` AND projectId IN (${placeholders})`;
+      params.push(...filters.projectIds);
+      countParams.push(...filters.projectIds);
+    } else if (filters.projectId) {
+      sql += ' AND projectId = ?';
+      countSql += ' AND projectId = ?';
+      params.push(filters.projectId);
+      countParams.push(filters.projectId);
+    }
+
+    // 2. 类型过滤
+    if (filters.type) {
+      sql += ' AND type = ?';
+      countSql += ' AND type = ?';
+      params.push(filters.type);
+      countParams.push(filters.type);
+    }
+
+    // 3. 会话过滤
+    if (filters.sessionId) {
+      sql += ' AND sessionId = ?';
+      countSql += ' AND sessionId = ?';
+      params.push(filters.sessionId);
+      countParams.push(filters.sessionId);
+    }
+
+    // 4. 标签过滤
+    if (filters.tags && filters.tags.length > 0) {
+      // SQLite 中 tags 是 JSON 字符串，使用 LIKE 匹配
+      const tagConditions = filters.tags.map(() => 'tags LIKE ?').join(' OR ');
+      sql += ` AND (${tagConditions})`;
+      countSql += ` AND (${tagConditions})`;
+      filters.tags.forEach(tag => {
+        const pattern = `%"${tag}"%`;
+        params.push(pattern);
+        countParams.push(pattern);
+      });
+    }
+
+    // 5. 多维度关键词搜索
+    if (filters.query && filters.query.trim() !== '') {
+      const keywords = filters.query.split(/\s+/).filter(k => k.length > 0);
+      if (keywords.length > 0) {
+        // 每个关键词在多个字段中匹配（OR 逻辑）
+        const keywordConditions: string[] = [];
+        keywords.forEach(keyword => {
+          const pattern = `%${keyword}%`;
+          // 搜索维度：projectId、summary、fullText、tags、keywords
+          keywordConditions.push(
+            '(projectId LIKE ? COLLATE NOCASE OR summary LIKE ? COLLATE NOCASE OR fullText LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE OR keywords LIKE ? COLLATE NOCASE)'
+          );
+          params.push(pattern, pattern, pattern, pattern, pattern);
+          countParams.push(pattern, pattern, pattern, pattern, pattern);
+        });
+        // 任一关键词匹配即可
+        sql += ` AND (${keywordConditions.join(' OR ')})`;
+        countSql += ` AND (${keywordConditions.join(' OR ')})`;
+      }
+    }
+
+    // 排序和分页
+    sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    // 执行查询
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as any[];
+
+    // 获取总数
+    const countStmt = this.db.prepare(countSql);
+    const countResult = countStmt.get(...countParams) as { total: number };
+
+    return {
+      memories: rows.map(this.rowToMemory),
+      total: countResult.total,
+    };
   }
 
   /**

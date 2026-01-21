@@ -1,6 +1,26 @@
 import type { Memory, SearchFilters, SearchResult, TimelineResult, RelationNode } from '@emp/core';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+/**
+ * 获取 API 基础 URL
+ * 优先级：环境变量 > 浏览器端自动推断 > 默认值
+ */
+function getApiBaseUrl(): string {
+  // 优先使用环境变量
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+
+  // 浏览器端：从当前页面 URL 推断 API 地址（同主机，端口 3000）
+  if (typeof window !== 'undefined') {
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:3000/api`;
+  }
+
+  // 服务器端默认值
+  return 'http://localhost:3000/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * API 客户端 - 封装所有 API 调用

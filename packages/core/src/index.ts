@@ -106,3 +106,23 @@ export type {
   RelationsOptions,
   RelationNode,
 } from './storage.js';
+
+// 智能查询引擎
+export {
+  QueryIntent,
+  FIELD_WEIGHTS,
+  DEGRADE_STRATEGIES,
+  analyzeQueryIntent,
+  extractQueryKeywords,
+  calculateRelevanceScore,
+  createQueryContext,
+  applyNextDegradeStrategy,
+} from './query-engine.js';
+export type {
+  QueryRequest,
+  QueryResult,
+  QueryContext,
+  SearchMatch,
+  MatchSource,
+  DegradeStrategy,
+} from './query-engine.js';

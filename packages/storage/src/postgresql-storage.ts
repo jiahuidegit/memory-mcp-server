@@ -252,7 +252,12 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   /**
-   * 检索记忆
+   * 检索记忆（新算法：多维度搜索 + 智能降级 + 关系链融合）
+   *
+   * 核心功能：
+   * 1. 多维度搜索：projectId/summary/fullText/tags/keywords
+   * 2. 智能降级：无结果时自动放宽条件
+   * 3. 关系链融合：自动扩展关联记忆
    */
   async recall(filters: SearchFilters): Promise<SearchResult> {
     const startTime = Date.now();
@@ -262,78 +267,67 @@ export class PostgreSQLStorage implements IStorage {
       const cacheKey = LRUCache.generateKey(filters);
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        return cached; // 缓存命中，直接返回
+        return cached;
       }
     }
 
-    const strategy = filters.strategy || SearchStrategy.AUTO;
     const limit = filters.limit || 10;
     const offset = filters.offset || 0;
+    const expandRelations = filters.expandRelations !== false; // 默认开启
+    const relationDepth = filters.relationDepth || 1;
 
-    let actualStrategy: SearchStrategy;
-    let results: Memory[];
-    let total: number;
-    let dbStartTime: number;
-    let dbEndTime: number;
+    let dbStartTime = Date.now();
 
-    // 策略选择
-    const strategyStartTime = Date.now();
+    // 执行多维度搜索
+    const searchResult = await this.multiDimensionSearch(filters, limit, offset);
+    let results = searchResult.memories;
+    let total = searchResult.total;
 
-    // L1: 精确匹配（优先）
-    if (strategy === SearchStrategy.EXACT || strategy === SearchStrategy.AUTO) {
-      dbStartTime = Date.now();
-      const searchResult = await this.exactSearchWithCount(filters, limit, offset);
-      results = searchResult.memories;
-      total = searchResult.total;
-      dbEndTime = Date.now();
-      actualStrategy = SearchStrategy.EXACT;
+    // 智能降级：如果没有结果且有查询条件，尝试放宽搜索
+    if (results.length === 0 && filters.query) {
+      // 降级1：只按 projectId 返回最近记忆
+      if (filters.projectId || (filters.projectIds && filters.projectIds.length > 0)) {
+        const degradedResult = await this.multiDimensionSearch(
+          { ...filters, query: undefined },
+          limit,
+          offset
+        );
+        results = degradedResult.memories;
+        total = degradedResult.total;
+      }
 
-      // 如果L1找不到结果，降级到L2全文搜索
-      if (results.length === 0 && strategy === SearchStrategy.AUTO) {
-        dbStartTime = Date.now();
-        const fulltextResult = await this.fulltextSearchWithCount(filters, limit, offset);
-        results = fulltextResult.memories;
-        total = fulltextResult.total;
-        dbEndTime = Date.now();
-        actualStrategy = SearchStrategy.FULLTEXT;
+      // 降级2：全局搜索（移除 projectId 限制）
+      if (results.length === 0) {
+        const globalResult = await this.multiDimensionSearch(
+          { ...filters, projectId: undefined, projectIds: undefined },
+          limit,
+          offset
+        );
+        results = globalResult.memories;
+        total = globalResult.total;
       }
     }
-    // L2: 全文搜索
-    else if (strategy === SearchStrategy.FULLTEXT) {
-      dbStartTime = Date.now();
-      const searchResult = await this.fulltextSearchWithCount(filters, limit, offset);
-      results = searchResult.memories;
-      total = searchResult.total;
-      dbEndTime = Date.now();
-      actualStrategy = SearchStrategy.FULLTEXT;
-    }
-    // L3: 语义检索（暂未实现）
-    else {
-      dbStartTime = Date.now();
-      const searchResult = await this.fulltextSearchWithCount(filters, limit, offset);
-      results = searchResult.memories;
-      total = searchResult.total;
-      dbEndTime = Date.now();
-      actualStrategy = SearchStrategy.FULLTEXT;
+
+    // 关系链融合：扩展关联记忆
+    let relatedMemories: Memory[] | undefined;
+    if (expandRelations && results.length > 0) {
+      relatedMemories = await this.expandRelatedMemories(results, relationDepth);
     }
 
-    const strategyTime = Date.now() - strategyStartTime;
+    const dbEndTime = Date.now();
     const took = Date.now() - startTime;
-
-    // 计算解析时间（总时间 - 数据库时间）
     const dbTime = dbEndTime - dbStartTime;
-    const parseTime = took - dbTime - strategyTime;
 
     const result: SearchResult = {
       memories: results,
-      total, // 返回真正的总数
-      strategy: actualStrategy,
+      relatedMemories,
+      total,
+      strategy: SearchStrategy.FULLTEXT,
       took,
       metrics: {
         dbTime,
-        parseTime: Math.max(0, parseTime), // 确保非负
-        strategyTime,
-        cacheHit: false, // 数据库查询，标记为未命中
+        parseTime: Math.max(0, took - dbTime),
+        cacheHit: false,
       },
     };
 
@@ -347,7 +341,145 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   /**
-   * L1: 精确匹配检索（带总数）
+   * 扩展关联记忆
+   *
+   * 基于搜索结果的关系链（relatedTo、replaces、impacts、derivedFrom）
+   * 自动获取关联的记忆，去重后返回
+   */
+  private async expandRelatedMemories(
+    memories: Memory[],
+    depth: number = 1
+  ): Promise<Memory[]> {
+    if (depth <= 0 || memories.length === 0) {
+      return [];
+    }
+
+    // 收集所有关联 ID（去重）
+    const relatedIds = new Set<string>();
+    const processedIds = new Set<string>(memories.map(m => m.meta.id));
+
+    for (const memory of memories) {
+      const { relations } = memory;
+      if (!relations) continue;
+
+      // 收集各种关系类型的 ID
+      relations.relatedTo?.forEach(id => relatedIds.add(id));
+      relations.replaces?.forEach(id => relatedIds.add(id));
+      relations.impacts?.forEach(id => relatedIds.add(id));
+      if (relations.derivedFrom) relatedIds.add(relations.derivedFrom);
+    }
+
+    // 过滤掉已经在主结果中的记忆
+    const idsToFetch = Array.from(relatedIds).filter(id => !processedIds.has(id));
+
+    if (idsToFetch.length === 0) {
+      return [];
+    }
+
+    // 批量获取关联记忆
+    const relatedRows = await this.prisma.memory.findMany({
+      where: { id: { in: idsToFetch } },
+      orderBy: { timestamp: 'desc' },
+    });
+
+    const relatedMemories = relatedRows.map(this.rowToMemory);
+
+    // 递归扩展（如果需要更深层次）
+    if (depth > 1 && relatedMemories.length > 0) {
+      const deeperRelated = await this.expandRelatedMemories(relatedMemories, depth - 1);
+      // 合并并去重
+      const allRelated = [...relatedMemories];
+      const existingIds = new Set(allRelated.map(m => m.meta.id));
+      for (const m of deeperRelated) {
+        if (!existingIds.has(m.meta.id) && !processedIds.has(m.meta.id)) {
+          allRelated.push(m);
+          existingIds.add(m.meta.id);
+        }
+      }
+      return allRelated;
+    }
+
+    return relatedMemories;
+  }
+
+  /**
+   * 多维度搜索（核心算法）
+   * 搜索范围：projectId、summary、fullText、tags、keywords
+   */
+  private async multiDimensionSearch(
+    filters: SearchFilters,
+    limit: number,
+    offset: number
+  ): Promise<{ memories: Memory[]; total: number }> {
+    const where: Prisma.MemoryWhereInput = {};
+    const andConditions: Prisma.MemoryWhereInput[] = [];
+
+    // 1. 项目过滤（支持单个或多个）
+    if (filters.projectIds && filters.projectIds.length > 0) {
+      andConditions.push({ projectId: { in: filters.projectIds } });
+    } else if (filters.projectId) {
+      andConditions.push({ projectId: filters.projectId });
+    }
+
+    // 2. 类型过滤
+    if (filters.type) {
+      andConditions.push({ type: filters.type });
+    }
+
+    // 3. 会话过滤
+    if (filters.sessionId) {
+      andConditions.push({ sessionId: filters.sessionId });
+    }
+
+    // 4. 标签过滤（精确匹配）
+    if (filters.tags && filters.tags.length > 0) {
+      andConditions.push({ tags: { hasSome: filters.tags } });
+    }
+
+    // 5. 多维度关键词搜索
+    if (filters.query && filters.query.trim() !== '') {
+      const keywords = filters.query.split(/\s+/).filter(k => k.length > 0);
+
+      if (keywords.length > 0) {
+        // 构建多维度 OR 条件：任一关键词匹配任一字段
+        const keywordConditions: Prisma.MemoryWhereInput[] = keywords.flatMap(keyword => [
+          // 搜索 projectId
+          { projectId: { contains: keyword, mode: 'insensitive' as const } },
+          // 搜索 summary
+          { summary: { contains: keyword, mode: 'insensitive' as const } },
+          // 搜索 fullText
+          { fullText: { contains: keyword, mode: 'insensitive' as const } },
+          // 搜索 tags 数组
+          { tags: { hasSome: [keyword] } },
+          // 搜索 keywords 数组
+          { keywords: { hasSome: [keyword] } },
+        ]);
+
+        andConditions.push({ OR: keywordConditions });
+      }
+    }
+
+    // 组合所有条件
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    // 并行执行查询和计数
+    const [rows, total] = await Promise.all([
+      this.prisma.memory.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.memory.count({ where }),
+    ]);
+
+    return { memories: rows.map(this.rowToMemory), total };
+  }
+
+  /**
+   * L1: 精确匹配检索（带总数）- 保留用于特定场景
    */
   private async exactSearchWithCount(
     filters: SearchFilters,
