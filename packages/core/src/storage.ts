@@ -146,6 +146,7 @@ export interface IStorage {
    */
   store(params: {
     content: string;
+    data: Record<string, unknown>;
     rawContext: Record<string, unknown>;
     projectId: string;
     type?: MemoryType;

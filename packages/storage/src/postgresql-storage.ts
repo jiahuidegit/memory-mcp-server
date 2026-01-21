@@ -46,6 +46,7 @@ export class PostgreSQLStorage implements IStorage {
    */
   async store(params: {
     content: string;
+    data: Record<string, unknown>;
     rawContext: Record<string, unknown>;
     projectId: string;
     type?: MemoryType;
@@ -71,8 +72,8 @@ export class PostgreSQLStorage implements IStorage {
         type: memoryType,
         tags: params.tags || [],
         summary: params.content,
-        // data 存储空对象（简洁数据），rawContext 存到 context 字段（完整原始数据）
-        data: {},
+        // data 存储关键结构化数据（精简版），context 存储完整原始数据（完整版）
+        data: params.data as any,
         replaces: params.relations?.replaces || [],
         relatedTo: params.relations?.relatedTo || [],
         impacts: params.relations?.impacts || [],

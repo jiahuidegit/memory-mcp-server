@@ -333,9 +333,10 @@ async function expandRelationChain(
 const tools: Tool[] = [
   {
     name: 'mpulse_store',
-    description: `智能存储记忆。重要：content 和 rawContext 必须存储不同内容！
+    description: `智能存储记忆。三个核心字段必须分别填写不同内容！
 - content: 简洁摘要（1-2句话），用于列表展示
-- rawContext: 完整原始数据，包括所有细节（命令输出、配置值、文件内容等）`,
+- data: 关键结构化数据，提取的重要信息（精简版）
+- rawContext: 完整原始数据，包括所有细节（完整版）`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -343,9 +344,17 @@ const tools: Tool[] = [
           type: 'string',
           description: '简洁摘要（1-2句话），仅用于快速浏览。例如："配置了 PostgreSQL 数据库连接"',
         },
+        data: {
+          type: 'object',
+          description: `关键结构化数据对象，提取的重要信息（精简版）。例如：
+- 配置类：{ host, port, database, user }
+- 决策类：{ chosen, reason }
+- 问题类：{ error, solution }
+【重要】只保留关键字段，便于快速查看！`,
+        },
         rawContext: {
           type: 'object',
-          description: `完整原始数据对象，必须包含所有细节！包括但不限于：
+          description: `完整原始数据对象，必须包含所有细节（完整版）！包括但不限于：
 - 完整的命令输出和错误信息
 - 具体的配置值、端口、路径
 - 文件内容和代码片段
@@ -372,7 +381,7 @@ const tools: Tool[] = [
           description: '会话 ID（可选）',
         },
       },
-      required: ['content', 'rawContext', 'projectId'],
+      required: ['content', 'data', 'rawContext', 'projectId'],
     },
   },
   {
@@ -1043,12 +1052,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case 'mpulse_store': {
         const content = (args as any).content;
+        const data = (args as any).data;
         const rawContext = (args as any).rawContext;
         const projectId = (args as any).projectId;
 
         // 1. 存储记忆
         const result = await storage.store({
           content,
+          data,
           rawContext,
           projectId,
           type: (args as any).type,

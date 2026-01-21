@@ -47,6 +47,7 @@ export class SQLiteStorage implements IStorage {
    */
   async store(params: {
     content: string;
+    data: Record<string, unknown>;
     rawContext: Record<string, unknown>;
     projectId: string;
     type?: MemoryType;
@@ -84,12 +85,12 @@ export class SQLiteStorage implements IStorage {
       memoryType,
       params.tags ? JSON.stringify(params.tags) : null,
       params.content, // summary
-      JSON.stringify(params.rawContext), // data
+      JSON.stringify(params.data), // data - 关键结构化数据（精简版）
       params.relations?.replaces ? JSON.stringify(params.relations.replaces) : null,
       params.relations?.relatedTo ? JSON.stringify(params.relations.relatedTo) : null,
       params.relations?.impacts ? JSON.stringify(params.relations.impacts) : null,
       params.relations?.derivedFrom || null,
-      JSON.stringify(params.rawContext), // context
+      JSON.stringify(params.rawContext), // context - 完整原始数据（完整版）
       params.tags ? JSON.stringify(params.tags) : null, // keywords
       params.content, // fullText
       params.embedding ? serializeVector(params.embedding) : null, // embedding
