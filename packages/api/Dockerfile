@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile
 COPY packages/core ./packages/core
 COPY packages/storage ./packages/storage
 COPY packages/api ./packages/api
-COPY tsconfig.json ./
+COPY tsconfig.json turbo.json ./
 
 # 生成 Prisma Client
 RUN cd packages/storage && pnpm prisma:generate && cd ../..
