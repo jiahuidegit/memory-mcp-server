@@ -206,6 +206,12 @@ export interface IStorage {
       projectId: string;
       sessionId?: string;
       embedding?: Vector; // 可选的向量 embedding
+      relations?: {
+        replaces?: string[];
+        relatedTo?: string[];
+        impacts?: string[];
+        derivedFrom?: string;
+      };
     }
   ): Promise<{ id: string; success: boolean }>;
 

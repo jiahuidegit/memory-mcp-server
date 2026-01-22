@@ -333,10 +333,19 @@ async function expandRelationChain(
 const tools: Tool[] = [
   {
     name: 'mpulse_store',
-    description: `智能存储记忆。三个核心字段必须分别填写不同内容！
+    description: `智能存储记忆。三个核心字段必须分别填写不同内容!
+
+【🔴 强制要求】存储前必须先用 mpulse_recall 检索相关记忆，然后通过 relations 字段关联！
+- 如果是对已有记忆的更新/修正 → 使用 replaces
+- 如果与已有记忆相关 → 使用 relatedTo
+- 如果会影响已有记忆 → 使用 impacts
+- 如果基于已有记忆派生 → 使用 derivedFrom
+
+核心字段：
 - content: 简洁摘要（1-2句话），用于列表展示
 - data: 关键结构化数据，提取的重要信息（精简版）
-- rawContext: 完整原始数据，包括所有细节（完整版）`,
+- rawContext: 完整原始数据，包括所有细节（完整版）
+- relations: 【必填】关联的记忆 ID`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -380,13 +389,48 @@ const tools: Tool[] = [
           type: 'string',
           description: '会话 ID（可选）',
         },
+        relations: {
+          type: 'object',
+          description: `【🔴 强制要求】记忆关联，存储前必须先检索相关记忆并关联！
+- relatedTo: 与这些记忆相关（如：同一功能的不同方面）
+- replaces: 替代/更新这些记忆（如：配置变更、方案修正）
+- impacts: 影响这些记忆（如：架构变更影响多个模块）
+- derivedFrom: 基于某条记忆派生（如：基于决策的具体实现）
+如果确实没有相关记忆，设置为空对象 {}`,
+          properties: {
+            relatedTo: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '关联的记忆 ID 列表',
+            },
+            replaces: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '替代的记忆 ID 列表',
+            },
+            impacts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '影响的记忆 ID 列表',
+            },
+            derivedFrom: {
+              type: 'string',
+              description: '派生自的记忆 ID',
+            },
+          },
+        },
       },
-      required: ['content', 'data', 'rawContext', 'projectId'],
+      required: ['content', 'data', 'rawContext', 'projectId', 'relations'],
     },
   },
   {
     name: 'mpulse_store_decision',
-    description: '存储架构决策（强制字段，防止 AI 偷懒）',
+    description: `存储架构决策（强制字段，防止 AI 偷懒）
+
+【🔴 强制要求】存储前必须先用 mpulse_recall 检索相关决策，然后通过 relations 字段关联！
+- 如果是对已有决策的修正 → 使用 replaces
+- 如果与已有决策相关 → 使用 relatedTo
+- 如果会影响已有决策 → 使用 impacts`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -428,13 +472,44 @@ const tools: Tool[] = [
           type: 'string',
           description: '会话 ID（可选）',
         },
+        relations: {
+          type: 'object',
+          description: `【🔴 强制要求】记忆关联，存储前必须先检索相关决策并关联！
+如果确实没有相关记忆，设置为空对象 {}`,
+          properties: {
+            relatedTo: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '关联的记忆 ID 列表',
+            },
+            replaces: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '替代的记忆 ID 列表',
+            },
+            impacts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '影响的记忆 ID 列表',
+            },
+            derivedFrom: {
+              type: 'string',
+              description: '派生自的记忆 ID',
+            },
+          },
+        },
       },
-      required: ['question', 'options', 'chosen', 'reason', 'projectId'],
+      required: ['question', 'options', 'chosen', 'reason', 'projectId', 'relations'],
     },
   },
   {
     name: 'mpulse_store_solution',
-    description: '存储问题解决方案',
+    description: `存储问题解决方案
+
+【🔴 强制要求】存储前必须先用 mpulse_recall 检索相关问题/方案，然后通过 relations 字段关联！
+- 如果是对已有方案的改进 → 使用 replaces
+- 如果与已有问题/方案相关 → 使用 relatedTo
+- 如果基于某个决策实现 → 使用 derivedFrom`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -476,13 +551,43 @@ const tools: Tool[] = [
           type: 'object',
           description: '相关文件（代码片段等）',
         },
+        relations: {
+          type: 'object',
+          description: `【🔴 强制要求】记忆关联，存储前必须先检索相关问题/方案并关联！
+如果确实没有相关记忆，设置为空对象 {}`,
+          properties: {
+            relatedTo: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '关联的记忆 ID 列表',
+            },
+            replaces: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '替代的记忆 ID 列表',
+            },
+            impacts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '影响的记忆 ID 列表',
+            },
+            derivedFrom: {
+              type: 'string',
+              description: '派生自的记忆 ID',
+            },
+          },
+        },
       },
-      required: ['problem', 'rootCause', 'solution', 'projectId'],
+      required: ['problem', 'rootCause', 'solution', 'projectId', 'relations'],
     },
   },
   {
     name: 'mpulse_store_session',
-    description: '存储会话总结（会话结束时调用）',
+    description: `存储会话总结（会话结束时调用）
+
+【🔴 强制要求】存储前必须关联本次会话中产生的所有记忆！
+- 使用 relatedTo 关联本次会话中存储的所有决策、方案、配置等记忆
+- 如果是上一次会话的延续 → 使用 derivedFrom 关联上次会话记忆`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -513,8 +618,36 @@ const tools: Tool[] = [
           type: 'string',
           description: '会话 ID',
         },
+        relations: {
+          type: 'object',
+          description: `【🔴 强制要求】记忆关联！
+- relatedTo: 本次会话中存储的所有记忆 ID
+- derivedFrom: 如果是延续上次会话，填上次会话记忆 ID
+如果确实没有相关记忆，设置为空对象 {}`,
+          properties: {
+            relatedTo: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '关联的记忆 ID 列表（本次会话产生的记忆）',
+            },
+            replaces: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '替代的记忆 ID 列表',
+            },
+            impacts: {
+              type: 'array',
+              items: { type: 'string' },
+              description: '影响的记忆 ID 列表',
+            },
+            derivedFrom: {
+              type: 'string',
+              description: '派生自的记忆 ID（上次会话）',
+            },
+          },
+        },
       },
-      required: ['summary', 'projectId', 'sessionId'],
+      required: ['summary', 'projectId', 'sessionId', 'relations'],
     },
   },
   {
@@ -1055,8 +1188,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const data = (args as any).data;
         const rawContext = (args as any).rawContext;
         const projectId = (args as any).projectId;
+        const relations = (args as any).relations;
 
-        // 1. 存储记忆
+        // 1. 存储记忆（包含手动指定的关系）
         const result = await storage.store({
           content,
           data,
@@ -1065,6 +1199,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           type: (args as any).type,
           tags: (args as any).tags,
           sessionId: (args as any).sessionId,
+          relations,
         });
 
         // 2. 自动建立关联关系
@@ -1093,10 +1228,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'mpulse_store_decision': {
         const projectId = (args as any).projectId;
+        const relations = (args as any).relations;
         const decisionParams: DecisionContext & {
           projectId: string;
           tags?: string[];
           sessionId?: string;
+          relations?: {
+            replaces?: string[];
+            relatedTo?: string[];
+            impacts?: string[];
+            derivedFrom?: string;
+          };
         } = {
           question: (args as any).question,
           options: (args as any).options,
@@ -1105,6 +1247,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           projectId,
           tags: (args as any).tags,
           sessionId: (args as any).sessionId,
+          relations,
         };
         const result = await storage.storeDecision(decisionParams);
 
@@ -1136,11 +1279,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'mpulse_store_solution': {
         const projectId = (args as any).projectId;
+        const relations = (args as any).relations;
         const solutionParams: SolutionContext & {
           projectId: string;
           tags?: string[];
           sessionId?: string;
           artifacts?: Record<string, string>;
+          relations?: {
+            replaces?: string[];
+            relatedTo?: string[];
+            impacts?: string[];
+            derivedFrom?: string;
+          };
         } = {
           problem: (args as any).problem,
           rootCause: (args as any).rootCause,
@@ -1151,6 +1301,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           tags: (args as any).tags,
           sessionId: (args as any).sessionId,
           artifacts: (args as any).artifacts,
+          relations,
         };
         const result = await storage.storeSolution(solutionParams);
 
@@ -1182,9 +1333,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'mpulse_store_session': {
         const projectId = (args as any).projectId;
+        const relations = (args as any).relations;
         const sessionParams: SessionContext & {
           projectId: string;
           sessionId: string;
+          relations?: {
+            replaces?: string[];
+            relatedTo?: string[];
+            impacts?: string[];
+            derivedFrom?: string;
+          };
         } = {
           summary: (args as any).summary,
           decisions: (args as any).decisions,
@@ -1192,6 +1350,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           nextSteps: (args as any).nextSteps,
           projectId,
           sessionId: (args as any).sessionId,
+          relations,
         };
         const result = await storage.storeSession(sessionParams);
 
