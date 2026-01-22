@@ -29,7 +29,7 @@ COPY tsconfig.json ./
 RUN cd packages/storage && pnpm prisma:generate && cd ../..
 
 # 使用 turbo 统一构建所有包（自动处理依赖顺序）
-RUN pnpm turbo build --filter=@cms/api...
+RUN pnpm turbo build --filter=@emp/api...
 
 # Stage 2: Runtime
 FROM node:18-alpine
@@ -54,4 +54,4 @@ RUN mkdir -p /app/data
 EXPOSE 3000
 
 # 启动命令
-CMD ["pnpm", "--filter", "@cms/api", "start"]
+CMD ["pnpm", "--filter", "@emp/api", "start"]
