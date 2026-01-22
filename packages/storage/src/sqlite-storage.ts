@@ -931,6 +931,7 @@ export class SQLiteStorage implements IStorage {
 
   /**
    * 获取关系链
+   * 从 memory_relations 表读取关系数据（包括自动关联）
    */
   async getRelations(options: RelationsOptions): Promise<RelationNode> {
     const memory = await this.getById(options.memoryId);
@@ -942,15 +943,36 @@ export class SQLiteStorage implements IStorage {
     const relatedNodes: RelationNode[] = [];
 
     if (depth > 0) {
-      // 查找所有相关记忆
-      const relatedIds = [
-        ...(memory.relations.replaces || []),
-        ...(memory.relations.relatedTo || []),
-        ...(memory.relations.impacts || []),
-      ];
+      // 从 memory_relations 表获取关系（包括自动生成的）
+      const relationsFromTable = this.db
+        .prepare(
+          `SELECT sourceId, targetId FROM memory_relations
+           WHERE sourceId = ? OR targetId = ?`
+        )
+        .all(options.memoryId, options.memoryId) as { sourceId: string; targetId: string }[];
 
+      // 提取相关记忆 ID（去重）
+      const relatedIds = new Set<string>();
+      for (const rel of relationsFromTable) {
+        if (rel.sourceId === options.memoryId) {
+          relatedIds.add(rel.targetId);
+        } else {
+          relatedIds.add(rel.sourceId);
+        }
+      }
+
+      // 同时检查 Memory 内嵌字段（兼容手动指定的关系）
+      if (memory.relations.replaces) {
+        memory.relations.replaces.forEach((id) => relatedIds.add(id));
+      }
+      if (memory.relations.relatedTo) {
+        memory.relations.relatedTo.forEach((id) => relatedIds.add(id));
+      }
+      if (memory.relations.impacts) {
+        memory.relations.impacts.forEach((id) => relatedIds.add(id));
+      }
       if (memory.relations.derivedFrom) {
-        relatedIds.push(memory.relations.derivedFrom);
+        relatedIds.add(memory.relations.derivedFrom);
       }
 
       for (const relatedId of relatedIds) {
