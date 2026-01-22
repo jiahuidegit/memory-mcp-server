@@ -17,6 +17,9 @@ import {
   type SessionContext,
   type MemoryRelationData,
   type ProjectGroupConfig,
+  // 自动关联相关
+  findRelatedMemories,
+  generateAutoRelations,
 } from '@emp/core';
 import { LRUCache } from './cache.js';
 
@@ -120,6 +123,9 @@ export class PostgreSQLStorage implements IStorage {
       this.cache.invalidateProject(params.projectId);
     }
 
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, params.tags || []);
+
     return { id, success: true };
   }
 
@@ -206,6 +212,9 @@ export class PostgreSQLStorage implements IStorage {
     if (this.cache) {
       this.cache.invalidateProject(params.projectId);
     }
+
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
 
     return { id, success: true };
   }
@@ -295,6 +304,9 @@ export class PostgreSQLStorage implements IStorage {
       this.cache.invalidateProject(params.projectId);
     }
 
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
+
     return { id, success: true };
   }
 
@@ -379,6 +391,9 @@ export class PostgreSQLStorage implements IStorage {
     if (this.cache) {
       this.cache.invalidateProject(params.projectId);
     }
+
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
 
     return { id, success: true };
   }
@@ -1288,5 +1303,61 @@ export class PostgreSQLStorage implements IStorage {
     });
 
     return rows.map(this.rowToMemory);
+  }
+
+  /**
+   * 自动关联：存储记忆后自动查找并建立关联
+   * 基于 tags/keywords 相似度自动建立 relatedTo 关系
+   */
+  private async autoRelate(memoryId: string, projectId: string, keywords: string[]): Promise<void> {
+    // 关键词为空则跳过
+    if (keywords.length === 0) {
+      return;
+    }
+
+    try {
+      // 1. 获取新存储的记忆
+      const newMemory = await this.getById(memoryId);
+      if (!newMemory) {
+        return;
+      }
+
+      // 2. 获取项目组（支持跨项目关联）
+      const projectGroup = await this.getProjectGroupByProject(projectId);
+      const projectIds = projectGroup ? projectGroup.projects : [projectId];
+
+      // 3. 搜索候选关联记忆
+      const candidates = await this.searchCandidates({
+        keywords,
+        projectIds,
+        excludeId: memoryId,
+        limit: 50,
+      });
+
+      if (candidates.length === 0) {
+        return;
+      }
+
+      // 4. 计算相似度并找出相关记忆
+      const relatedMemories = findRelatedMemories(newMemory, candidates, {
+        threshold: 0.3,
+        maxRelations: 10,
+      });
+
+      if (relatedMemories.length === 0) {
+        return;
+      }
+
+      // 5. 生成自动关联关系
+      const autoRelations = generateAutoRelations(memoryId, relatedMemories);
+
+      // 6. 写入 MemoryRelation 表
+      if (autoRelations.length > 0) {
+        await this.createRelations(autoRelations);
+      }
+    } catch (error) {
+      // 自动关联失败不影响主流程，仅打印警告
+      console.warn(`自动关联失败 (${memoryId}):`, (error as Error).message);
+    }
   }
 }

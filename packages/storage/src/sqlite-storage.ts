@@ -21,6 +21,9 @@ import {
   serializeVector,
   deserializeVector,
   cosineSimilarity,
+  // 自动关联相关
+  findRelatedMemories,
+  generateAutoRelations,
 } from '@emp/core';
 import { initSchema } from './schema.js';
 import { LRUCache } from './cache.js';
@@ -125,6 +128,9 @@ export class SQLiteStorage implements IStorage {
       }
     }
 
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, params.tags || []);
+
     // 失效相关缓存
     if (this.cache) {
       this.cache.invalidateProject(params.projectId);
@@ -220,6 +226,9 @@ export class SQLiteStorage implements IStorage {
         relStmt.run(`rel_${nanoid()}`, id, params.relations.derivedFrom, 'derivedFrom', 1.0, 0, null, timestamp);
       }
     }
+
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
 
     // 失效相关缓存
     if (this.cache) {
@@ -319,6 +328,9 @@ export class SQLiteStorage implements IStorage {
       }
     }
 
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
+
     // 失效相关缓存
     if (this.cache) {
       this.cache.invalidateProject(params.projectId);
@@ -413,6 +425,9 @@ export class SQLiteStorage implements IStorage {
         relStmt.run(`rel_${nanoid()}`, id, params.relations.derivedFrom, 'derivedFrom', 1.0, 0, null, timestamp);
       }
     }
+
+    // 自动关联：存储后自动查找相关记忆并建立关联
+    await this.autoRelate(id, params.projectId, keywords);
 
     // 失效相关缓存
     if (this.cache) {
@@ -1416,5 +1431,61 @@ export class SQLiteStorage implements IStorage {
     const rows = stmt.all(...sqlParams) as any[];
 
     return rows.map(this.rowToMemory);
+  }
+
+  /**
+   * 自动关联：存储记忆后自动查找并建立关联
+   * 基于 tags/keywords 相似度自动建立 relatedTo 关系
+   */
+  private async autoRelate(memoryId: string, projectId: string, keywords: string[]): Promise<void> {
+    // 关键词为空则跳过
+    if (keywords.length === 0) {
+      return;
+    }
+
+    try {
+      // 1. 获取新存储的记忆
+      const newMemory = await this.getById(memoryId);
+      if (!newMemory) {
+        return;
+      }
+
+      // 2. 获取项目组（支持跨项目关联）
+      const projectGroup = await this.getProjectGroupByProject(projectId);
+      const projectIds = projectGroup ? projectGroup.projects : [projectId];
+
+      // 3. 搜索候选关联记忆
+      const candidates = await this.searchCandidates({
+        keywords,
+        projectIds,
+        excludeId: memoryId,
+        limit: 50,
+      });
+
+      if (candidates.length === 0) {
+        return;
+      }
+
+      // 4. 计算相似度并找出相关记忆
+      const relatedMemories = findRelatedMemories(newMemory, candidates, {
+        threshold: 0.3,
+        maxRelations: 10,
+      });
+
+      if (relatedMemories.length === 0) {
+        return;
+      }
+
+      // 5. 生成自动关联关系
+      const autoRelations = generateAutoRelations(memoryId, relatedMemories);
+
+      // 6. 写入 memory_relations 表
+      if (autoRelations.length > 0) {
+        await this.createRelations(autoRelations);
+      }
+    } catch (error) {
+      // 自动关联失败不影响主流程，仅打印警告
+      console.warn(`自动关联失败 (${memoryId}):`, (error as Error).message);
+    }
   }
 }
